@@ -33,6 +33,7 @@ class BacktestStorage:
         result_id: str,
         symbol: str,
         strategy_name: Optional[str],
+        custom_name: Optional[str],
         results: Dict[str, Any],
         metrics: Dict[str, Any],
         equity_curve: List[Dict[str, Any]],
@@ -45,13 +46,14 @@ class BacktestStorage:
             result_id: Unique identifier for the result
             symbol: Stock symbol
             strategy_name: Name of the strategy
+            custom_name: User-defined name for this backtest run
             results: Backtest results dictionary
             metrics: Performance metrics dictionary
             equity_curve: Equity curve data
             trades: Trade history
             metadata: Optional metadata (start_date, end_date, initial_capital, commission, slippage)
         """
-        logger.info(f"[BacktestStorage] Saving backtest result: result_id={result_id}, symbol={symbol}, strategy={strategy_name}")
+        logger.info(f"[BacktestStorage] Saving backtest result: result_id={result_id}, name={custom_name}, symbol={symbol}, strategy={strategy_name}")
         
         # Store metadata in metrics if provided
         if metadata:
@@ -87,7 +89,7 @@ class BacktestStorage:
                     'result_id': result_id,
                     'symbol': symbol,
                     'strategy_name': strategy_name,
-                    'custom_name': None,  # Custom name set separately via update
+                    'custom_name': custom_name,
                     'results': results_json,
                     'metrics': metrics_json,
                     'equity_curve': equity_curve_json,

@@ -170,7 +170,9 @@ with col_right:
             
             # Show full results (scrollable)
             st.divider()
-            results_display_component(results, data)
+            strategy_name = st.session_state.strategy_type.replace('_', ' ').title() if st.session_state.strategy_type else "Unknown Strategy"
+            symbol = st.session_state.selected_symbol or "Unknown"
+            results_display_component(results, data, strategy_name=strategy_name, symbol=symbol)
             
             st.divider()
             trade_history_component(results)

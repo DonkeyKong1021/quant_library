@@ -70,6 +70,7 @@ class SymbolMetadataResponse(BaseModel):
 
 
 class BacktestRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255, description="Name for this backtest run")
     data: List[Dict[str, Any]]  # DataFrame serialized as list of dicts
     strategy: Dict[str, Any]  # Strategy name and parameters (or type='custom' with code field)
     config: Dict[str, Any]  # Backtest configuration

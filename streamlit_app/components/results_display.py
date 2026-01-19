@@ -10,15 +10,23 @@ from streamlit_app.utils.plotly_charts import (
     plot_monthly_returns_plotly
 )
 from streamlit_app.components.metrics_table import metrics_table_component
+from streamlit_app.components.ai_insights import ai_insights_component
 
 
-def results_display_component(results: dict, data: pd.DataFrame = None):
+def results_display_component(
+    results: dict,
+    data: pd.DataFrame = None,
+    strategy_name: str = "Unknown Strategy",
+    symbol: str = "Unknown"
+):
     """
     Display backtest results with interactive charts and metrics.
     
     Args:
         results: Backtest results dictionary
         data: Original price data (optional, for trade markers)
+        strategy_name: Name of the strategy used
+        symbol: Trading symbol
     """
     if results is None or not results:
         st.warning("No results to display. Run a backtest first.")
@@ -26,6 +34,9 @@ def results_display_component(results: dict, data: pd.DataFrame = None):
     
     # Metrics table at top
     metrics_table_component(results)
+    
+    # AI Insights section
+    ai_insights_component(results, strategy_name=strategy_name, symbol=symbol)
     
     st.divider()
     

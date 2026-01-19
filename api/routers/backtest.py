@@ -683,7 +683,7 @@ async def run_backtest(request: BacktestRequest):
         }
         
         # Store results
-        logger.info(f"[Backtest] Preparing to save backtest result: result_id={result_id}, symbol={request.symbol}, strategy={strategy_name}")
+        logger.info(f"[Backtest] Preparing to save backtest result: result_id={result_id}, name={request.name}, symbol={request.symbol}, strategy={strategy_name}")
         logger.info(f"[Backtest] USE_DATABASE={USE_DATABASE}, backtest_storage={backtest_storage is not None}")
         
         if USE_DATABASE and backtest_storage:
@@ -693,6 +693,7 @@ async def run_backtest(request: BacktestRequest):
                     result_id=result_id,
                     symbol=request.symbol,
                     strategy_name=strategy_name,
+                    custom_name=request.name,
                     results=results_serialized,
                     metrics=metrics,
                     equity_curve=equity_curve_serialized,
@@ -1369,3 +1370,241 @@ async def walkforward_analysis(request: WalkForwardRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error running walk-forward analysis: {str(e)}")
+
+
+# ============================================================================
+# AI Insights Endpoint
+# ============================================================================
+
+from pydantic import BaseModel
+
+class AIInsightsRequest(BaseModel):
+    """Request model for AI insights generation."""
+    metrics: Dict[str, Any]
+    strategy_name: str = "Unknown Strategy"
+    symbol: str = "Unknown"
+    trades_summary: Optional[Dict[str, Any]] = None
+
+
+class AIInsightsResponse(BaseModel):
+    """Response model for AI insights."""
+    summary: Optional[str] = None
+    strengths: List[str] = []
+    concerns: List[str] = []
+    suggestions: List[str] = []
+    error: Optional[str] = None
+    message: Optional[str] = None
+
+
+def _get_ai_client():
+    """Get an AI client based on available API keys."""
+    import os
+    
+    openai_key = os.getenv("OPENAI_API_KEY")
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    
+    if openai_key:
+        try:
+            from openai import OpenAI
+            return OpenAI(api_key=openai_key), "openai"
+        except ImportError:
+            logger.warning("OpenAI package not installed")
+            return None, None
+    
+    if anthropic_key:
+        try:
+            import anthropic
+            return anthropic.Anthropic(api_key=anthropic_key), "anthropic"
+        except ImportError:
+            logger.warning("Anthropic package not installed")
+            return None, None
+    
+    return None, None
+
+
+def _build_metrics_summary(
+    metrics: Dict[str, Any],
+    strategy_name: str,
+    symbol: str,
+    trades_summary: Optional[Dict[str, Any]] = None
+) -> str:
+    """Build a structured summary of metrics for the AI prompt."""
+    summary_parts = [
+        f"Strategy: {strategy_name}",
+        f"Symbol: {symbol}",
+        "",
+        "=== Performance Metrics ===",
+        f"Total Return: {metrics.get('total_return', 0) * 100:.2f}%",
+        f"Sharpe Ratio: {metrics.get('sharpe_ratio', 0):.2f}",
+        f"Sortino Ratio: {metrics.get('sortino_ratio', 0):.2f}",
+        f"Calmar Ratio: {metrics.get('calmar_ratio', 0):.2f}",
+        "",
+        "=== Risk Metrics ===",
+        f"Max Drawdown: {metrics.get('max_drawdown_pct', 0):.2f}%",
+        f"Annualized Volatility: {metrics.get('volatility', 0) * 100:.2f}%",
+        f"Historical VaR (95%): {metrics.get('var_historical', 0) * 100:.4f}%",
+        f"CVaR (Expected Shortfall): {metrics.get('cvar', 0) * 100:.4f}%",
+        "",
+        "=== Distribution ===",
+        f"Skewness: {metrics.get('skewness', 0):.4f}",
+        f"Kurtosis: {metrics.get('kurtosis', 0):.4f}",
+    ]
+    
+    if trades_summary:
+        summary_parts.extend([
+            "",
+            "=== Trade Statistics ===",
+            f"Total Trades: {trades_summary.get('num_trades', 0)}",
+            f"Win Rate: {trades_summary.get('win_rate', 0):.2f}%",
+            f"Profit Factor: {trades_summary.get('profit_factor', 0):.2f}",
+            f"Average Win: ${trades_summary.get('avg_win', 0):.2f}",
+            f"Average Loss: ${trades_summary.get('avg_loss', 0):.2f}",
+        ])
+    
+    if 'initial_capital' in metrics and 'final_equity' in metrics:
+        summary_parts.extend([
+            "",
+            "=== Capital ===",
+            f"Initial Capital: ${metrics.get('initial_capital', 0):,.2f}",
+            f"Final Equity: ${metrics.get('final_equity', 0):,.2f}",
+        ])
+    
+    return "\n".join(summary_parts)
+
+
+def _get_system_prompt() -> str:
+    """Get the system prompt for backtest analysis."""
+    return """You are a quantitative finance expert analyzing backtest results. 
+Provide clear, actionable insights in a structured format.
+
+Be concise and specific. Focus on:
+1. What the numbers actually mean for the trader
+2. Potential risks or red flags
+3. Practical suggestions for improvement
+
+Avoid generic advice. Base all observations on the specific metrics provided.
+Use plain language that a retail trader can understand."""
+
+
+def _get_user_prompt(metrics_summary: str) -> str:
+    """Get the user prompt for backtest analysis."""
+    return f"""Analyze these backtest results and provide insights:
+
+{metrics_summary}
+
+Respond in this exact JSON format:
+{{
+    "summary": "2-3 sentence overview of performance",
+    "strengths": ["strength 1", "strength 2", "strength 3"],
+    "concerns": ["concern 1", "concern 2"],
+    "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]
+}}
+
+Keep each bullet point to 1 sentence. Be specific to these metrics."""
+
+
+def _call_openai(client, system_prompt: str, user_prompt: str) -> dict:
+    """Call OpenAI API and parse response."""
+    import json
+    
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        temperature=0.3,
+        max_tokens=500,
+        timeout=15
+    )
+    
+    content = response.choices[0].message.content
+    if "```json" in content:
+        content = content.split("```json")[1].split("```")[0]
+    elif "```" in content:
+        content = content.split("```")[1].split("```")[0]
+    
+    return json.loads(content.strip())
+
+
+def _call_anthropic(client, system_prompt: str, user_prompt: str) -> dict:
+    """Call Anthropic API and parse response."""
+    import json
+    
+    response = client.messages.create(
+        model="claude-3-haiku-20240307",
+        max_tokens=500,
+        system=system_prompt,
+        messages=[
+            {"role": "user", "content": user_prompt}
+        ]
+    )
+    
+    content = response.content[0].text
+    if "```json" in content:
+        content = content.split("```json")[1].split("```")[0]
+    elif "```" in content:
+        content = content.split("```")[1].split("```")[0]
+    
+    return json.loads(content.strip())
+
+
+@router.post("/insights", response_model=AIInsightsResponse)
+async def generate_ai_insights(request: AIInsightsRequest):
+    """
+    Generate AI-powered insights for backtest results.
+    
+    Requires either OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable.
+    """
+    import json
+    
+    client, provider = _get_ai_client()
+    
+    if client is None:
+        return AIInsightsResponse(
+            error="no_api_key",
+            message="No AI API key configured. Add OPENAI_API_KEY or ANTHROPIC_API_KEY to your .env file."
+        )
+    
+    try:
+        metrics_summary = _build_metrics_summary(
+            request.metrics, 
+            request.strategy_name, 
+            request.symbol, 
+            request.trades_summary
+        )
+        system_prompt = _get_system_prompt()
+        user_prompt = _get_user_prompt(metrics_summary)
+        
+        if provider == "openai":
+            result = _call_openai(client, system_prompt, user_prompt)
+        else:
+            result = _call_anthropic(client, system_prompt, user_prompt)
+        
+        # Validate response structure
+        required_keys = ["summary", "strengths", "concerns", "suggestions"]
+        for key in required_keys:
+            if key not in result:
+                result[key] = [] if key != "summary" else "Analysis completed."
+        
+        return AIInsightsResponse(
+            summary=result.get("summary"),
+            strengths=result.get("strengths", []),
+            concerns=result.get("concerns", []),
+            suggestions=result.get("suggestions", []),
+            error=None,
+            message=None
+        )
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse AI response: {e}")
+        return AIInsightsResponse(
+            error="parse_error",
+            message=f"Failed to parse AI response: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"AI API error: {e}")
+        return AIInsightsResponse(
+            error="api_error",
+            message=f"AI API error: {str(e)}"
+        )

@@ -20,14 +20,16 @@ import {
   Tooltip,
   IconButton,
 } from '@mui/material'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { dataService } from '../services/dataService'
 import { recentSymbolsStorage } from '../utils/localStorage'
 import { dataSourceStorage } from '../utils/dataSourceStorage'
+import { useThemeMode } from '../contexts/ThemeContext'
 import SearchIcon from '@mui/icons-material/Search'
 import CachedIcon from '@mui/icons-material/Cached'
-import RefreshIcon from '@mui/icons-material/Refresh'
 import InfoIcon from '@mui/icons-material/Info'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DataPreview from './DataPreview'
 
 // Preset date ranges
@@ -41,6 +43,7 @@ const DATE_PRESETS = [
 
 export default function DataFetcher({ onDataFetched }) {
   const queryClient = useQueryClient()
+  const { isDark } = useThemeMode()
   const [symbol, setSymbol] = useState('')
   const [startDate, setStartDate] = useState(null)
   const [endDate, setEndDate] = useState(null)
@@ -53,7 +56,8 @@ export default function DataFetcher({ onDataFetched }) {
   const [dataCached, setDataCached] = useState(false)
   const [selectedPreset, setSelectedPreset] = useState('')
   const [interval, setInterval] = useState('1d')
-  
+  const [fetchSuccess, setFetchSuccess] = useState(false)
+
   // Available data sources
   const availableDataSources = [
     { value: 'yahoo', label: 'Yahoo Finance' },
@@ -61,7 +65,7 @@ export default function DataFetcher({ onDataFetched }) {
     { value: 'polygon', label: 'Polygon.io' },
     { value: 'iex_cloud', label: 'IEX Cloud (deprecated)' },
   ]
-  
+
   // Update localStorage when data source changes
   useEffect(() => {
     dataSourceStorage.set(dataSource)
@@ -72,17 +76,16 @@ export default function DataFetcher({ onDataFetched }) {
     queryKey: ['allSymbols'],
     queryFn: async () => {
       const response = await dataService.getAllSymbols()
-      // Merge with localStorage recent symbols
       const localRecent = recentSymbolsStorage.get()
       if (localRecent.length > 0) {
         response.recent = [...new Set([...localRecent, ...(response.recent || [])])].slice(0, 10)
       }
       return response
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   })
 
-  // Debounced symbol for metadata lookup (avoid API calls on every keystroke)
+  // Debounced symbol for metadata lookup
   const [debouncedSymbol, setDebouncedSymbol] = useState('')
 
   useEffect(() => {
@@ -92,7 +95,7 @@ export default function DataFetcher({ onDataFetched }) {
     return () => clearTimeout(timer)
   }, [symbol])
 
-  // Fetch metadata for selected symbol (debounced)
+  // Fetch metadata for selected symbol
   const { data: symbolMetadata } = useQuery({
     queryKey: ['symbolMetadata', debouncedSymbol],
     queryFn: async () => {
@@ -100,7 +103,7 @@ export default function DataFetcher({ onDataFetched }) {
       return await dataService.getSymbolMetadata(debouncedSymbol)
     },
     enabled: !!debouncedSymbol && debouncedSymbol.length >= 1,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   })
 
   // Get symbol options with grouping
@@ -122,7 +125,7 @@ export default function DataFetcher({ onDataFetched }) {
     }))
   }, [allSymbolsData])
 
-  // Set default dates (1 year ago to today)
+  // Set default dates
   useEffect(() => {
     const today = new Date()
     const oneYearAgo = new Date(today)
@@ -134,41 +137,35 @@ export default function DataFetcher({ onDataFetched }) {
     }
   }, [])
 
-  // Auto-suggest date range from metadata (only when symbol changes)
+  // Auto-suggest date range from metadata
   useEffect(() => {
     if (symbolMetadata && symbolMetadata.available_date_range && !fetchedData && symbol) {
       const availableStart = new Date(symbolMetadata.available_date_range.start)
       const availableEnd = new Date(symbolMetadata.available_date_range.end)
       const today = new Date()
 
-      // Set end date to today or available end, whichever is earlier
       const suggestedEnd = availableEnd < today ? availableEnd : today
-
-      // Set start date to 1 year before end or available start, whichever is later
       const oneYearBeforeEnd = new Date(suggestedEnd)
       oneYearBeforeEnd.setFullYear(oneYearBeforeEnd.getFullYear() - 1)
       let suggestedStart = availableStart > oneYearBeforeEnd ? availableStart : oneYearBeforeEnd
 
-      // Ensure start is always before end
       if (suggestedStart >= suggestedEnd) {
         suggestedStart = new Date(suggestedEnd)
-        suggestedStart.setDate(suggestedStart.getDate() - 365) // Go back 1 year from end
+        suggestedStart.setDate(suggestedStart.getDate() - 365)
         if (suggestedStart < availableStart) {
           suggestedStart = new Date(availableStart)
         }
       }
 
-      // Set both dates together to ensure valid range
       setStartDate(suggestedStart)
       setEndDate(suggestedEnd)
-      setSelectedPreset('') // Clear preset when auto-setting dates
+      setSelectedPreset('')
     }
   }, [symbol, symbolMetadata, fetchedData])
 
   const handlePresetDateRange = (days, presetLabel) => {
     const today = new Date()
-    const end = new Date(today) // Today
-
+    const end = new Date(today)
     const start = new Date(end)
     start.setDate(start.getDate() - days)
 
@@ -205,6 +202,7 @@ export default function DataFetcher({ onDataFetched }) {
 
     setLoading(true)
     setError(null)
+    setFetchSuccess(false)
 
     try {
       const startStr = startDate.toISOString().split('T')[0]
@@ -216,12 +214,11 @@ export default function DataFetcher({ onDataFetched }) {
         endDate: endStr,
         useCache: useCache,
         forceRefresh: forceRefresh,
-        dataSource: dataSource !== 'yahoo' ? dataSource : null, // Only send if not default
+        dataSource: dataSource !== 'yahoo' ? dataSource : null,
         interval: interval,
       })
 
       if (response.data && response.data.length > 0) {
-        // Convert data back to format expected by components
         const formattedData = response.data.map((row) => ({
           ...row,
           Date: new Date(row.Date),
@@ -229,25 +226,19 @@ export default function DataFetcher({ onDataFetched }) {
 
         setFetchedData(formattedData)
         setDataCached(response.cached || false)
+        setFetchSuccess(true)
 
-        // Update recent symbols in localStorage
         if (response.symbol) {
           const newRecent = recentSymbolsStorage.add(response.symbol)
-          
-          // Also update backend (optional, for future multi-user support)
+
           try {
             await dataService.updateRecentSymbols(newRecent)
           } catch (error) {
-            // Backend update is optional, localStorage is source of truth
             console.warn('Failed to update recent symbols on backend:', error)
           }
-          
-          // Invalidate symbols query to refresh recent symbols
+
           queryClient.invalidateQueries({ queryKey: ['allSymbols'] })
-          
-          // Invalidate metadata query to refresh date ranges after fetching data
-          // This ensures the UI shows updated available_date_range when data is refreshed
-          // Metadata changes when data is saved to database (force refresh or new data)
+
           if (forceRefresh || !response.cached) {
             queryClient.invalidateQueries({ queryKey: ['symbolMetadata', symbol.toUpperCase()] })
           }
@@ -256,13 +247,15 @@ export default function DataFetcher({ onDataFetched }) {
         if (onDataFetched) {
           onDataFetched(formattedData, symbol.toUpperCase())
         }
+
+        // Reset success indicator after delay
+        setTimeout(() => setFetchSuccess(false), 2000)
       } else {
         setError('No data found for the selected symbol and date range')
       }
     } catch (err) {
-      // Enhanced error handling with specific messages
       let errorMessage = 'Failed to fetch data'
-      
+
       if (err.code === 'NOT_FOUND') {
         errorMessage = `No data found for ${symbol.toUpperCase()}. Please check the symbol and date range.`
       } else if (err.code === 'BAD_REQUEST') {
@@ -283,18 +276,41 @@ export default function DataFetcher({ onDataFetched }) {
 
   return (
     <>
-      <Paper sx={{ p: 4, elevation: 1 }}>
+      <Paper
+        component={motion.div}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        sx={{
+          p: 4,
+          background: isDark
+            ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.4) 100%)'
+            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.5) 100%)',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 3,
+        }}
+        elevation={0}
+      >
         <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
           Fetch Market Data
         </Typography>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <Alert severity="error" sx={{ mb: 2.5 }} onClose={() => setError(null)}>
+                {error}
+              </Alert>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <Grid container spacing={2}>
+        <Grid container spacing={2.5}>
           {/* Symbol Selection */}
           <Grid item xs={12} md={4}>
             <Autocomplete
@@ -332,9 +348,7 @@ export default function DataFetcher({ onDataFetched }) {
                       {option.isCommon && (
                         <Chip label="Common" size="small" color="secondary" variant="outlined" />
                       )}
-                      {option.inDatabase && (
-                        <Chip label="DB" size="small" variant="outlined" />
-                      )}
+                      {option.inDatabase && <Chip label="DB" size="small" variant="outlined" />}
                     </Box>
                   </Box>
                 </Box>
@@ -350,7 +364,7 @@ export default function DataFetcher({ onDataFetched }) {
                     ...params.InputProps,
                     startAdornment: (
                       <InputAdornment position="start">
-                        <SearchIcon />
+                        <SearchIcon sx={{ color: 'text.secondary' }} />
                       </InputAdornment>
                     ),
                   }}
@@ -358,12 +372,18 @@ export default function DataFetcher({ onDataFetched }) {
               )}
             />
             {symbolMetadata && symbolMetadata.in_database && (
-              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <InfoIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                <Typography variant="caption" color="text.secondary">
-                  Available in database
-                </Typography>
-              </Box>
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+                  <Typography variant="caption" color="success.main" fontWeight={500}>
+                    Available in database
+                  </Typography>
+                </Box>
+              </motion.div>
             )}
           </Grid>
 
@@ -375,7 +395,7 @@ export default function DataFetcher({ onDataFetched }) {
               value={startDate ? startDate.toISOString().split('T')[0] : ''}
               onChange={(e) => {
                 setStartDate(new Date(e.target.value))
-                setSelectedPreset('') // Clear preset when manually changed
+                setSelectedPreset('')
               }}
               fullWidth
               InputLabelProps={{ shrink: true }}
@@ -390,15 +410,25 @@ export default function DataFetcher({ onDataFetched }) {
                 value={endDate ? endDate.toISOString().split('T')[0] : ''}
                 onChange={(e) => {
                   setEndDate(new Date(e.target.value))
-                  setSelectedPreset('') // Clear preset when manually changed
+                  setSelectedPreset('')
                 }}
                 fullWidth
                 InputLabelProps={{ shrink: true }}
               />
               {symbolMetadata && symbolMetadata.available_date_range && (
-                <Tooltip title="Set to maximum available date range">
-                  <IconButton onClick={handleMaxDateRange} size="small" sx={{ mt: 1 }}>
-                    <CachedIcon />
+                <Tooltip title="Set to maximum available date range" arrow>
+                  <IconButton
+                    onClick={handleMaxDateRange}
+                    size="small"
+                    sx={{
+                      mt: 1,
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                      '&:hover': {
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                      },
+                    }}
+                  >
+                    <CachedIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
               )}
@@ -408,18 +438,42 @@ export default function DataFetcher({ onDataFetched }) {
           {/* Fetch Button */}
           <Grid item xs={12} md={2}>
             <Button
+              component={motion.button}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               variant="contained"
               fullWidth
               onClick={handleFetch}
               disabled={loading}
-              sx={{ 
+              sx={{
                 height: '56px',
                 fontSize: '0.9375rem',
-                fontWeight: 500,
+                fontWeight: 600,
+                background: fetchSuccess
+                  ? 'linear-gradient(135deg, #34d399 0%, #10b981 100%)'
+                  : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                boxShadow: fetchSuccess
+                  ? '0 2px 12px rgba(16, 185, 129, 0.3)'
+                  : '0 2px 12px rgba(37, 99, 235, 0.3)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: fetchSuccess
+                    ? '0 4px 16px rgba(16, 185, 129, 0.4)'
+                    : '0 4px 16px rgba(37, 99, 235, 0.4)',
+                },
               }}
               size="large"
             >
-              {loading ? <CircularProgress size={24} color="inherit" /> : 'Fetch Data'}
+              {loading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : fetchSuccess ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CheckCircleIcon sx={{ fontSize: 20 }} />
+                  Done
+                </Box>
+              ) : (
+                'Fetch Data'
+              )}
             </Button>
           </Grid>
 
@@ -427,11 +481,7 @@ export default function DataFetcher({ onDataFetched }) {
           <Grid item xs={12} md={3}>
             <FormControl fullWidth>
               <InputLabel>Interval</InputLabel>
-              <Select
-                value={interval}
-                label="Interval"
-                onChange={(e) => setInterval(e.target.value)}
-              >
+              <Select value={interval} label="Interval" onChange={(e) => setInterval(e.target.value)}>
                 <MenuItem value="1d">Daily (1d)</MenuItem>
                 <MenuItem value="1h">Hourly (1h)</MenuItem>
                 <MenuItem value="1m">1 Minute (1m)</MenuItem>
@@ -485,9 +535,17 @@ export default function DataFetcher({ onDataFetched }) {
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
               <FormControlLabel
                 control={
-                  <Checkbox checked={useCache} onChange={(e) => setUseCache(e.target.checked)} />
+                  <Checkbox
+                    checked={useCache}
+                    onChange={(e) => setUseCache(e.target.checked)}
+                    sx={{
+                      '&.Mui-checked': {
+                        color: 'primary.main',
+                      },
+                    }}
+                  />
                 }
-                label="Use Cache"
+                label={<Typography variant="body2">Use Cache</Typography>}
               />
               <FormControlLabel
                 control={
@@ -495,9 +553,18 @@ export default function DataFetcher({ onDataFetched }) {
                     checked={forceRefresh}
                     onChange={(e) => setForceRefresh(e.target.checked)}
                     disabled={!useCache}
+                    sx={{
+                      '&.Mui-checked': {
+                        color: 'warning.main',
+                      },
+                    }}
                   />
                 }
-                label="Force Refresh"
+                label={
+                  <Typography variant="body2" color={!useCache ? 'text.disabled' : 'text.secondary'}>
+                    Force Refresh
+                  </Typography>
+                }
               />
               <FormControl size="small" sx={{ minWidth: 150 }}>
                 <InputLabel>Data Source</InputLabel>
@@ -514,10 +581,25 @@ export default function DataFetcher({ onDataFetched }) {
                 </Select>
               </FormControl>
               {symbolMetadata && symbolMetadata.available_date_range && (
-                <Typography variant="caption" color="text.secondary">
-                  Available: {new Date(symbolMetadata.available_date_range.start).toLocaleDateString()} -{' '}
-                  {new Date(symbolMetadata.available_date_range.end).toLocaleDateString()}
-                </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: 1.5,
+                    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(37, 99, 235, 0.06)',
+                    border: '1px solid',
+                    borderColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(37, 99, 235, 0.12)',
+                  }}
+                >
+                  <InfoIcon sx={{ fontSize: 14, color: 'primary.main' }} />
+                  <Typography variant="caption" color="primary.main" fontWeight={500}>
+                    {new Date(symbolMetadata.available_date_range.start).toLocaleDateString()} -{' '}
+                    {new Date(symbolMetadata.available_date_range.end).toLocaleDateString()}
+                  </Typography>
+                </Box>
               )}
             </Box>
           </Grid>
@@ -525,14 +607,23 @@ export default function DataFetcher({ onDataFetched }) {
       </Paper>
 
       {/* Data Preview */}
-      {fetchedData && fetchedData.length > 0 && (
-        <DataPreview
-          data={fetchedData}
-          metadata={symbolMetadata}
-          cached={dataCached}
-          symbol={symbol.toUpperCase()}
-        />
-      )}
+      <AnimatePresence>
+        {fetchedData && fetchedData.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <DataPreview
+              data={fetchedData}
+              metadata={symbolMetadata}
+              cached={dataCached}
+              symbol={symbol.toUpperCase()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }

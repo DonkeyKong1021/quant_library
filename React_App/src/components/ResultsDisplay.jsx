@@ -8,6 +8,7 @@ import {
   Tab,
   CircularProgress,
   Alert,
+  TextField,
 } from '@mui/material'
 import DownloadIcon from '@mui/icons-material/Download'
 import { backtestService } from '../services/backtestService'
@@ -15,6 +16,7 @@ import MetricsTable from './MetricsTable'
 import TradeHistory from './TradeHistory'
 import Chart from './Chart'
 import ExportDialog from './ExportDialog'
+import AIInsights from './AIInsights'
 import {
   exportMetricsToCSV,
   exportTradesToCSV,
@@ -37,11 +39,17 @@ export default function ResultsDisplay({
   const [error, setError] = useState(null)
   const [tabValue, setTabValue] = useState(0)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [backtestName, setBacktestName] = useState('')
   const chartExportRef = useRef(null)
 
   const handleRunBacktest = async () => {
     if (!data || !strategy || !config) {
       setError('Please configure data, strategy, and backtest settings first')
+      return
+    }
+
+    if (!backtestName.trim()) {
+      setError('Please enter a name for this backtest')
       return
     }
 
@@ -57,6 +65,7 @@ export default function ResultsDisplay({
         strategy: strategy,
         config: config,
         symbol: backtestSymbol,
+        name: backtestName.trim(),
       })
 
       setResults(response)
@@ -117,7 +126,24 @@ export default function ResultsDisplay({
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Backtest Results
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <TextField
+            label="Backtest Name"
+            placeholder="e.g., RSI_AAPL_v1"
+            value={backtestName}
+            onChange={(e) => setBacktestName(e.target.value)}
+            size="small"
+            required
+            error={!backtestName.trim() && !!data && !!strategy && !!config}
+            helperText={!backtestName.trim() && !!data && !!strategy && !!config ? 'Required' : ''}
+            sx={{ 
+              minWidth: 200,
+              '& .MuiFormHelperText-root': {
+                position: 'absolute',
+                bottom: -20,
+              }
+            }}
+          />
           {displayResults && (
             <Button
               variant="outlined"
@@ -133,7 +159,7 @@ export default function ResultsDisplay({
             variant="contained"
             color="primary"
             onClick={handleRunBacktest}
-            disabled={isLoading || !data || !strategy || !config}
+            disabled={isLoading || !data || !strategy || !config || !backtestName.trim()}
             size="large"
             sx={{ fontSize: '0.9375rem', fontWeight: 500 }}
           >
@@ -163,6 +189,12 @@ export default function ResultsDisplay({
       {displayResults && (
         <>
           <MetricsTable results={displayResults} />
+
+          <AIInsights 
+            results={displayResults} 
+            strategyName={strategy?.type || 'Unknown Strategy'} 
+            symbol={symbol || 'Unknown'} 
+          />
 
           <Box sx={{ mt: 3 }}>
             <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>

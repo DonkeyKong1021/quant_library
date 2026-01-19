@@ -1,8 +1,9 @@
 import api from './api'
 
 export const backtestService = {
-  async runBacktest({ data, strategy, config, symbol }) {
+  async runBacktest({ data, strategy, config, symbol, name }) {
     const response = await api.post('/api/backtest/run', {
+      name,
       data,
       strategy,
       config,
@@ -70,6 +71,16 @@ export const backtestService = {
       objective,
       optimization_type: optimizationType,
       max_combinations: maxCombinations,
+    })
+    return response.data
+  },
+
+  async generateInsights({ metrics, strategyName, symbol, tradesSummary }) {
+    const response = await api.post('/api/backtest/insights', {
+      metrics,
+      strategy_name: strategyName,
+      symbol,
+      trades_summary: tradesSummary,
     })
     return response.data
   },
