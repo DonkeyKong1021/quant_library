@@ -6,12 +6,14 @@ import pandas as pd
 import numpy as np
 from typing import Optional
 from quantlib.risk.drawdown import calculate_drawdown, underwater_curve
+from streamlit_app.utils.chart_utils import adaptive_sample
 
 
 def plot_equity_curve_plotly(
     equity_curve: pd.Series,
     benchmark: Optional[pd.Series] = None,
-    title: str = "Equity Curve"
+    title: str = "Equity Curve",
+    max_points: int = 2000
 ) -> go.Figure:
     """
     Create interactive equity curve chart with Plotly.
@@ -20,16 +22,20 @@ def plot_equity_curve_plotly(
         equity_curve: Equity series
         benchmark: Optional benchmark equity series
         title: Chart title
+        max_points: Maximum data points before sampling (default: 2000)
         
     Returns:
         Plotly Figure
     """
     fig = go.Figure()
     
+    # Sample data if needed for performance
+    sampled_equity = adaptive_sample(equity_curve, max_points)
+    
     # Main equity curve
     fig.add_trace(go.Scatter(
-        x=equity_curve.index,
-        y=equity_curve.values,
+        x=sampled_equity.index,
+        y=sampled_equity.values,
         mode='lines',
         name='Equity',
         line=dict(width=2, color='#1f77b4'),
@@ -38,9 +44,10 @@ def plot_equity_curve_plotly(
     
     # Benchmark if provided
     if benchmark is not None:
+        sampled_benchmark = adaptive_sample(benchmark, max_points)
         fig.add_trace(go.Scatter(
-            x=benchmark.index,
-            y=benchmark.values,
+            x=sampled_benchmark.index,
+            y=sampled_benchmark.values,
             mode='lines',
             name='Benchmark',
             line=dict(width=2, color='#ff7f0e', dash='dash'),
@@ -59,24 +66,28 @@ def plot_equity_curve_plotly(
     return fig
 
 
-def plot_drawdown_plotly(equity_curve: pd.Series, title: str = "Drawdown") -> go.Figure:
+def plot_drawdown_plotly(equity_curve: pd.Series, title: str = "Drawdown", max_points: int = 2000) -> go.Figure:
     """
     Create interactive drawdown chart with Plotly.
     
     Args:
         equity_curve: Equity series
         title: Chart title
+        max_points: Maximum data points before sampling (default: 2000)
         
     Returns:
         Plotly Figure
     """
     underwater = underwater_curve(equity_curve)
     
+    # Sample data if needed for performance
+    sampled_underwater = adaptive_sample(underwater, max_points)
+    
     fig = go.Figure()
     
     fig.add_trace(go.Scatter(
-        x=underwater.index,
-        y=underwater.values,
+        x=sampled_underwater.index,
+        y=sampled_underwater.values,
         fill='tozeroy',
         mode='lines',
         name='Drawdown',
@@ -116,6 +127,7 @@ def plot_returns_distribution_plotly(
     """
     fig = go.Figure()
     
+    # For histograms, we don't need to sample - binning already reduces data
     fig.add_trace(go.Histogram(
         x=returns.values * 100,
         nbinsx=50,
@@ -147,7 +159,8 @@ def plot_returns_distribution_plotly(
 def plot_trades_on_chart(
     price_data: pd.Series,
     trades: pd.DataFrame,
-    title: str = "Price Chart with Trades"
+    title: str = "Price Chart with Trades",
+    max_points: int = 2000
 ) -> go.Figure:
     """
     Create interactive price chart with trade markers.
@@ -156,16 +169,20 @@ def plot_trades_on_chart(
         price_data: Price series
         trades: DataFrame with trade data (columns: timestamp, direction, price, quantity)
         title: Chart title
+        max_points: Maximum data points before sampling (default: 2000)
         
     Returns:
         Plotly Figure
     """
     fig = go.Figure()
     
+    # Sample price data if needed for performance
+    sampled_price = adaptive_sample(price_data, max_points)
+    
     # Price line
     fig.add_trace(go.Scatter(
-        x=price_data.index,
-        y=price_data.values,
+        x=sampled_price.index,
+        y=sampled_price.values,
         mode='lines',
         name='Price',
         line=dict(width=2, color='black'),

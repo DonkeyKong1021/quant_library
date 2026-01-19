@@ -1,6 +1,7 @@
-import { useMemo, memo } from 'react'
+import { useMemo, memo, useCallback } from 'react'
 import { Box } from '@mui/material'
 import Plot from 'react-plotly.js'
+import { getOptimalChartType, prepareChartData } from '../utils/chartUtils'
 
 // Simple client-side indicator calculations
 const calculateSMA = (prices, window) => {
@@ -470,15 +471,17 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
 
     const traces = []
 
-    // Price chart
+    // Price chart - use WebGL for large datasets
+    const priceChartType = getOptimalChartType('scatter', dates.length)
     if (chartType === 'line') {
       traces.push({
         x: dates,
         y: closes,
-        type: 'scatter',
+        type: priceChartType,
         mode: 'lines',
         name: 'Close',
         line: { width: 2, color: 'black' },
+        hovertemplate: 'Date: %{x}<br>Close: $%{y:.2f}<extra></extra>',
       })
     } else {
       traces.push({
@@ -489,16 +492,19 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
         close: closes,
         type: 'candlestick',
         name: 'Price',
+        increasing: { line: { color: '#26a69a' } },
+        decreasing: { line: { color: '#ef5350' } },
       })
     }
 
-    // Indicators on price chart
+    // Indicators on price chart - use WebGL for large datasets
+    const indicatorChartType = getOptimalChartType('scatter', dates.length)
     if (indicators.sma) {
       const smaValues = calculateSMA(closes, indicators.sma.window)
       traces.push({
         x: dates,
         y: smaValues,
-        type: 'scatter',
+        type: indicatorChartType,
         mode: 'lines',
         name: `SMA(${indicators.sma.window})`,
         line: { width: 2, color: '#2196f3' },
@@ -511,7 +517,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
       traces.push({
         x: dates,
         y: emaValues,
-        type: 'scatter',
+        type: indicatorChartType,
         mode: 'lines',
         name: `EMA(${indicators.ema.window})`,
         line: { width: 2, color: '#ff9800' },
@@ -525,7 +531,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
         {
           x: dates,
           y: bb.upper,
-          type: 'scatter',
+          type: indicatorChartType,
           mode: 'lines',
           name: 'BB Upper',
           line: { width: 1, color: 'gray', dash: 'dash' },
@@ -534,7 +540,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
         {
           x: dates,
           y: bb.middle,
-          type: 'scatter',
+          type: indicatorChartType,
           mode: 'lines',
           name: 'BB Middle',
           line: { width: 1, color: 'gray', dash: 'dot' },
@@ -542,7 +548,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
         {
           x: dates,
           y: bb.lower,
-          type: 'scatter',
+          type: indicatorChartType,
           mode: 'lines',
           name: 'BB Lower',
           line: { width: 1, color: 'gray', dash: 'dash' },
@@ -950,6 +956,21 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
     ],
   }), [])
 
+  // Optimized Plotly config
+  const plotlyConfig = useMemo(() => ({
+    responsive: true,
+    doubleClick: 'reset+autosize',
+    displayModeBar: true,
+    displaylogo: false,
+    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+    toImageButtonOptions: {
+      format: 'png',
+      width: 1200,
+      height: 600,
+      scale: 2,
+    },
+  }), [])
+
   if (!plotData || !plotData.priceTraces || plotData.priceTraces.length === 0) {
     return <div>No data available for chart</div>
   }
@@ -959,13 +980,9 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
       <Plot
         data={plotData.priceTraces}
         layout={priceLayout}
+        config={plotlyConfig}
         style={{ width: '100%', height: '400px' }}
-        config={{
-          responsive: true,
-          displayModeBar: true,
-          modeBarButtonsToAdd: ['pan2d', 'zoom2d', 'select2d', 'lasso2d', 'autoScale2d', 'resetScale2d'],
-          modeBarButtonsToRemove: [],
-        }}
+        useResizeHandler={true}
       />
       {rsiData && (
         <Box sx={{ mt: 2 }}>
@@ -980,12 +997,9 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
               hoverinfo: 'x+y',
             }]}
             layout={rsiLayout}
+            config={plotlyConfig}
             style={{ width: '100%', height: '200px' }}
-            config={{
-              responsive: true,
-              displayModeBar: true,
-              modeBarButtonsToAdd: ['pan2d', 'zoom2d', 'autoScale2d', 'resetScale2d'],
-            }}
+            useResizeHandler={true}
           />
         </Box>
       )}
@@ -1011,12 +1025,9 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
               },
             ]}
             layout={stochasticLayout}
+            config={plotlyConfig}
             style={{ width: '100%', height: '200px' }}
-            config={{
-              responsive: true,
-              displayModeBar: true,
-              modeBarButtonsToAdd: ['pan2d', 'zoom2d', 'autoScale2d', 'resetScale2d'],
-            }}
+            useResizeHandler={true}
           />
         </Box>
       )}
@@ -1032,12 +1043,9 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
               line: { width: 2, color: 'orange' },
             }]}
             layout={adxLayout}
+            config={plotlyConfig}
             style={{ width: '100%', height: '200px' }}
-            config={{
-              responsive: true,
-              displayModeBar: true,
-              modeBarButtonsToAdd: ['pan2d', 'zoom2d', 'autoScale2d', 'resetScale2d'],
-            }}
+            useResizeHandler={true}
           />
         </Box>
       )}
@@ -1053,12 +1061,9 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
               line: { width: 2, color: 'green' },
             }]}
             layout={obvLayout}
+            config={plotlyConfig}
             style={{ width: '100%', height: '200px' }}
-            config={{
-              responsive: true,
-              displayModeBar: true,
-              modeBarButtonsToAdd: ['pan2d', 'zoom2d', 'autoScale2d', 'resetScale2d'],
-            }}
+            useResizeHandler={true}
           />
         </Box>
       )}
@@ -1075,12 +1080,9 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
               hoverinfo: 'x+y',
             }]}
             layout={williamsRLayout}
+            config={plotlyConfig}
             style={{ width: '100%', height: '200px' }}
-            config={{
-              responsive: true,
-              displayModeBar: true,
-              modeBarButtonsToAdd: ['pan2d', 'zoom2d', 'autoScale2d', 'resetScale2d'],
-            }}
+            useResizeHandler={true}
           />
         </Box>
       )}
@@ -1096,12 +1098,9 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
               line: { width: 2, color: '#5c6bc0' },
             }]}
             layout={cciLayout}
+            config={plotlyConfig}
             style={{ width: '100%', height: '200px' }}
-            config={{
-              responsive: true,
-              displayModeBar: true,
-              modeBarButtonsToAdd: ['pan2d', 'zoom2d', 'autoScale2d', 'resetScale2d'],
-            }}
+            useResizeHandler={true}
           />
         </Box>
       )}
@@ -1117,12 +1116,9 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
               line: { width: 2, color: '#66bb6a' },
             }]}
             layout={rocLayout}
+            config={plotlyConfig}
             style={{ width: '100%', height: '200px' }}
-            config={{
-              responsive: true,
-              displayModeBar: true,
-              modeBarButtonsToAdd: ['pan2d', 'zoom2d', 'autoScale2d', 'resetScale2d'],
-            }}
+            useResizeHandler={true}
           />
         </Box>
       )}
@@ -1147,8 +1143,9 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
               }] : []),
             ]}
             layout={volumeLayout}
+            config={plotlyConfig}
             style={{ width: '100%', height: '200px' }}
-            config={{ responsive: true }}
+            useResizeHandler={true}
           />
         </Box>
       )}

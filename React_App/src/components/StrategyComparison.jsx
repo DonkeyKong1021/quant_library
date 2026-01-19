@@ -121,8 +121,16 @@ export default function StrategyComparison({ resultIds = [], onClose }) {
           }}
           config={{
             responsive: true,
+            doubleClick: 'reset+autosize',
             displayModeBar: true,
             displaylogo: false,
+            modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+            toImageButtonOptions: {
+              format: 'png',
+              width: 1200,
+              height: 600,
+              scale: 2,
+            },
           }}
           style={{ width: '100%', height: '100%' }}
         />

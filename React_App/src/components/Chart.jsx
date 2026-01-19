@@ -1,6 +1,7 @@
 import { useMemo, useRef, useEffect, memo } from 'react'
 import Plot from 'react-plotly.js'
 import Plotly from 'plotly.js'
+import { prepareChartData, getOptimalChartType } from '../utils/chartUtils'
 
 const Chart = memo(function Chart({ data, type = 'equity', onChartReady, benchmarkData }) {
   const plotDivRef = useRef(null)
@@ -9,32 +10,35 @@ const Chart = memo(function Chart({ data, type = 'equity', onChartReady, benchma
     if (!data || data.length === 0) return null
 
     if (type === 'equity') {
-      const dates = data.map((d) => new Date(d.Date || d.timestamp))
-      const equity = data.map((d) => d.equity || d.Equity)
+      // Prepare and optimize data
+      const strategyData = prepareChartData(data, 2000, true)
+      const chartType = getOptimalChartType('scatter', strategyData.x.length)
 
       const traces = [
         {
-          x: dates,
-          y: equity,
-          type: 'scatter',
+          x: strategyData.x,
+          y: strategyData.y,
+          type: chartType,
           mode: 'lines',
           name: 'Strategy',
           line: { color: '#1976d2', width: 2 },
+          hovertemplate: 'Date: %{x}<br>Equity: $%{y:,.2f}<extra></extra>',
         },
       ]
       
       // Add benchmark data if provided
       if (benchmarkData && benchmarkData.length > 0) {
-        const benchmarkDates = benchmarkData.map((d) => new Date(d.Date || d.timestamp))
-        const benchmarkEquity = benchmarkData.map((d) => d.equity || d.Equity)
+        const benchmarkDataPrepared = prepareChartData(benchmarkData, 2000, true)
+        const benchmarkChartType = getOptimalChartType('scatter', benchmarkDataPrepared.x.length)
         
         traces.push({
-          x: benchmarkDates,
-          y: benchmarkEquity,
-          type: 'scatter',
+          x: benchmarkDataPrepared.x,
+          y: benchmarkDataPrepared.y,
+          type: benchmarkChartType,
           mode: 'lines',
           name: 'Benchmark (SPY)',
           line: { color: '#ff9800', width: 2, dash: 'dash' },
+          hovertemplate: 'Date: %{x}<br>Benchmark: $%{y:,.2f}<extra></extra>',
         })
       }
       
@@ -76,17 +80,36 @@ const Chart = memo(function Chart({ data, type = 'equity', onChartReady, benchma
     return <div>No data available for chart</div>
   }
 
+  const plotlyConfig = useMemo(() => ({
+    responsive: true,
+    doubleClick: 'reset+autosize',
+    displayModeBar: true,
+    displaylogo: false,
+    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+    toImageButtonOptions: {
+      format: 'png',
+      width: 1200,
+      height: 600,
+      scale: 2,
+    },
+  }), [])
+
+  const plotlyLayout = useMemo(() => ({
+    title: type === 'equity' ? 'Equity Curve' : 'Chart',
+    xaxis: { title: 'Date' },
+    yaxis: { title: 'Value' },
+    autosize: true,
+    height: 400,
+    hovermode: 'x unified',
+    template: 'plotly_white',
+  }), [type])
+
   return (
     <div ref={plotDivRef}>
       <Plot
         data={plotData}
-        layout={{
-          title: type === 'equity' ? 'Equity Curve' : 'Chart',
-          xaxis: { title: 'Date' },
-          yaxis: { title: 'Value' },
-          autosize: true,
-          height: 400,
-        }}
+        layout={plotlyLayout}
+        config={plotlyConfig}
         style={{ width: '100%', height: '400px' }}
         useResizeHandler={true}
       />
