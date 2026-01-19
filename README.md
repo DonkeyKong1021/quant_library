@@ -4,13 +4,19 @@ A comprehensive Python library for building and backtesting trading algorithms.
 
 ## Features
 
-- **Data Management**: Fetch and store market data from multiple sources
+- **Data Management**: Fetch and store market data from multiple sources (Yahoo Finance, Alpha Vantage, Polygon.io)
 - **Technical Indicators**: 30+ technical indicators (trend, momentum, volatility, volume)
 - **Backtesting Engine**: Event-driven backtesting framework with realistic simulation
 - **Portfolio Management**: Position sizing, rebalancing, and portfolio tracking
 - **Risk Metrics**: Comprehensive risk analysis (Sharpe, Sortino, VaR, drawdown, etc.)
 - **Visualization**: Performance charts, equity curves, and trading visualizations
 - **Strategy Framework**: Extensible strategy base class for custom algorithms
+- **Strategy Library**: Curated collection of well-documented trading strategies
+- **AI Features**: AI-powered strategy generation and backtest insights (requires API key)
+- **Parameter Optimization**: Grid search and optimization for strategy parameters
+- **Walk-Forward Analysis**: Test strategies for overfitting with walk-forward validation
+- **Modern Web Interface**: React-based UI with FastAPI backend (recommended)
+- **Alternative Interface**: Streamlit dashboard for Python-based workflow
 
 ## Installation
 

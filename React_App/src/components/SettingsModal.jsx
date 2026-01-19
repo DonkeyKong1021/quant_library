@@ -185,9 +185,9 @@ export default function SettingsModal({ open, onClose }) {
           pb: 1,
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+        <Box component="span" sx={{ fontWeight: 600 }}>
           Settings
-        </Typography>
+        </Box>
         <IconButton onClick={onClose} size="small">
           <CloseIcon />
         </IconButton>

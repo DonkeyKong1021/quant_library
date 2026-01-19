@@ -25,14 +25,18 @@ class APIKeyStorage:
     def __init__(self, database_url: Optional[str] = None):
         """Initialize API key storage."""
         self.engine = create_database_engine(url=database_url or get_database_url())
-        self._ensure_table_exists()
+        self._table_checked = False
     
     def _ensure_table_exists(self):
-        """Ensure api_keys table exists."""
+        """Ensure api_keys table exists (lazy initialization)."""
+        if self._table_checked:
+            return
+        
         try:
             with self.engine.connect() as conn:
-                # Check if table exists by trying to query it
+                # Try to query the table to see if it exists
                 conn.execute(text("SELECT 1 FROM api_keys LIMIT 1"))
+                self._table_checked = True
         except Exception:
             # Table doesn't exist, create it
             try:
@@ -48,9 +52,12 @@ class APIKeyStorage:
                         )
                     """))
                     conn.commit()
+                    self._table_checked = True
                     logger.info("Created api_keys table")
             except Exception as e:
                 logger.warning(f"Could not create api_keys table: {e}")
+                # Mark as checked to avoid repeated attempts
+                self._table_checked = True
     
     def get_all_keys(self) -> Dict[str, str]:
         """
@@ -59,6 +66,7 @@ class APIKeyStorage:
         Returns:
             Dictionary with keys: alpha_vantage, polygon, openai, anthropic
         """
+        self._ensure_table_exists()  # Lazy table creation
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(
@@ -102,6 +110,7 @@ class APIKeyStorage:
         Args:
             keys: Dictionary with keys: alpha_vantage, polygon, openai, anthropic
         """
+        self._ensure_table_exists()  # Lazy table creation
         try:
             # Encrypt keys
             encrypted = {

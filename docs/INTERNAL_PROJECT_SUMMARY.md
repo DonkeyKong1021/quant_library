@@ -22,8 +22,10 @@ Successfully created a React web application and FastAPI backend to convert the 
   - `pages/` - Page components
     - `Dashboard.jsx` - Main dashboard with database statistics
     - `Backtest.jsx` - Backtesting page
-    - `DataExplorer.jsx` - Data exploration page (basic structure)
-    - `StrategyBuilder.jsx` - Strategy builder page (basic structure)
+    - `BacktestHistory.jsx` - View and manage past backtest results
+    - `DataExplorer.jsx` - Data exploration with technical indicators
+    - `StrategyBuilder.jsx` - Strategy builder with code editor and AI generation
+    - `Optimization.jsx` - Parameter optimization page
   - `services/` - API service layer
     - `api.js` - Axios HTTP client configuration
     - `dataService.js` - Data-related API calls
@@ -54,22 +56,46 @@ Successfully created a React web application and FastAPI backend to convert the 
 
 **API Endpoints:**
 
+See [API README](../api/README.md) for complete endpoint documentation.
+
 Database:
 - `GET /api/database/status` - Database connection status
 - `GET /api/database/symbols` - List available symbols
 - `GET /api/database/statistics` - Database statistics
+- `POST /api/database/update-all` - Batch update all tickers
 
 Data:
 - `POST /api/data/fetch` - Fetch market data (symbol, date range)
 - `GET /api/data/preview/{symbol}` - Get data preview
+- `GET /api/data/symbols/all` - Get all symbols with metadata
+- `GET /api/data/symbols/sectors` - Get symbols by sectors
+- `GET /api/data/metadata/{symbol}` - Get symbol metadata
 
 Backtest:
 - `POST /api/backtest/run` - Run backtest with strategy and config
 - `GET /api/backtest/results/{result_id}` - Get backtest results
+- `GET /api/backtest/results` - List all backtest results
+- `PATCH /api/backtest/results/{result_id}` - Update backtest result
+- `DELETE /api/backtest/results/{result_id}` - Delete backtest result
+- `POST /api/backtest/compare` - Compare multiple backtests
+- `POST /api/backtest/optimize` - Optimize strategy parameters
+- `POST /api/backtest/walkforward` - Walk-forward analysis
+- `POST /api/backtest/insights` - Generate AI insights
 
 Strategies:
 - `GET /api/strategies/list` - List available strategies
 - `GET /api/strategies/{name}/params` - Get strategy parameters
+- `GET /api/strategies/library` - List strategy library strategies
+- `GET /api/strategies/library/{strategy_id}` - Get strategy details
+- `GET /api/strategies/library/{strategy_id}/code` - Get strategy code
+- `POST /api/strategies/generate` - Generate strategy using AI
+
+Indicators:
+- `POST /api/indicators/calculate` - Calculate technical indicators
+
+Settings:
+- `GET /api/settings/api-keys` - Get API keys status
+- `POST /api/settings/api-keys` - Save API keys
 
 **Features:**
 - RESTful API design
@@ -107,14 +133,10 @@ Strategies:
    ```
 
 4. **Additional Work Needed:**
-   - Complete Data Explorer page implementation (charts, indicators)
-   - Complete Strategy Builder page (code editor, templates)
-   - Enhance chart visualizations (more Plotly chart types)
-   - Add error boundaries in React
-   - Add loading states and skeleton screens
-   - Implement data export functionality
-   - Add benchmark comparison features
-   - Testing and refinement
+   - Enhanced chart visualizations (more Plotly chart types)
+   - Additional error boundaries in React
+   - Expanded test coverage
+   - Performance optimizations
 
 ## Architecture
 
