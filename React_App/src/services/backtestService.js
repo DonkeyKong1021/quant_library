@@ -96,4 +96,12 @@ export const strategyService = {
     const response = await api.get(`/api/strategies/${strategyName}/params`)
     return response.data
   },
+
+  async generateStrategy(prompt, strategyType = null) {
+    const response = await api.post('/api/strategies/generate', {
+      prompt,
+      strategy_type: strategyType,
+    })
+    return response.data
+  },
 }

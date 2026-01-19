@@ -35,6 +35,7 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import HistoryIcon from '@mui/icons-material/History'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import NotificationsIcon from '@mui/icons-material/Notifications'
+import ShowChartIcon from '@mui/icons-material/ShowChart'
 import CircularProgress from '@mui/material/CircularProgress'
 import { navigationItems } from '../config/navigation'
 import QuickNav from './QuickNav'
@@ -459,6 +460,8 @@ export default function Header() {
                   ? '0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)'
                   : '0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)',
                 overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
                 '& .MuiList-root': {
                   padding: 0,
                 },
@@ -466,24 +469,14 @@ export default function Header() {
             }}
             MenuListProps={{
               sx: {
-                py: 0.5,
-                '&::-webkit-scrollbar': {
-                  width: '8px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: 'transparent',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
-                  borderRadius: '4px',
-                  '&:hover': {
-                    background: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
-                  },
-                },
+                py: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                maxHeight: '100%',
               },
             }}
           >
-            {/* Header */}
+            {/* Header - Fixed */}
             <Box 
               sx={{ 
                 px: 2.5, 
@@ -493,6 +486,7 @@ export default function Header() {
                 background: isDark
                   ? 'rgba(255, 255, 255, 0.02)'
                   : 'rgba(0, 0, 0, 0.02)',
+                flexShrink: 0,
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -507,37 +501,58 @@ export default function Header() {
               </Box>
             </Box>
 
-            {/* Content */}
-            {backtestsLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
-                <CircularProgress size={24} />
-              </Box>
-            ) : recentBacktests.length === 0 ? (
-              <Box sx={{ px: 2.5, py: 4, textAlign: 'center' }}>
-                <Box
-                  sx={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 2,
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    mx: 'auto',
-                    mb: 2,
-                  }}
-                >
-                  <HistoryIcon sx={{ fontSize: 32, color: 'text.secondary', opacity: 0.5 }} />
+            {/* Scrollable Content */}
+            <Box 
+              sx={{ 
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                flex: 1,
+                maxHeight: 'calc(520px - 140px)',
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: 'transparent',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+                  borderRadius: '4px',
+                  '&:hover': {
+                    background: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
+                  },
+                },
+              }}
+            >
+              {backtestsLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                  <CircularProgress size={24} />
                 </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem', mb: 0.5 }}>
-                  No recent backtests
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                  Run a backtest to see activity here
-                </Typography>
-              </Box>
-            ) : (
-              recentBacktests.map((result) => {
+              ) : recentBacktests.length === 0 ? (
+                <Box sx={{ px: 2.5, py: 4, textAlign: 'center' }}>
+                  <Box
+                    sx={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: 2,
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      mx: 'auto',
+                      mb: 2,
+                    }}
+                  >
+                    <HistoryIcon sx={{ fontSize: 32, color: 'text.secondary', opacity: 0.5 }} />
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem', mb: 0.5 }}>
+                    No recent backtests
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                    Run a backtest to see activity here
+                  </Typography>
+                </Box>
+              ) : (
+                recentBacktests.map((result) => {
                 const metrics = result.metrics || {}
                 const totalReturn = metrics.total_return || 0
                 const sharpeRatio = metrics.sharpe_ratio
@@ -590,67 +605,35 @@ export default function Header() {
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', width: '100%', gap: 1.5, p: 1.5 }}>
                       <Box
                         sx={{
-                          minWidth: 44,
-                          height: 44,
-                          borderRadius: 1.5,
+                          minWidth: 40,
+                          height: 40,
+                          width: 40,
+                          borderRadius: '50%',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          background: isPositive
-                            ? isDark
-                              ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.15) 100%)'
-                              : 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.08) 100%)'
-                            : isDark
-                            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.15) 100%)'
-                            : 'linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(220, 38, 38, 0.08) 100%)',
+                          backgroundColor: isDark
+                            ? 'rgba(16, 185, 129, 0.15)'
+                            : 'rgba(16, 185, 129, 0.1)',
                           border: '1px solid',
-                          borderColor: isPositive
-                            ? isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.2)'
-                            : isDark ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.2)',
+                          borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.25)',
                           flexShrink: 0,
                         }}
                       >
-                        {isPositive ? (
-                          <TrendingUpIcon sx={{ fontSize: 22, color: 'success.main' }} />
-                        ) : (
-                          <TrendingDownIcon sx={{ fontSize: 22, color: 'error.main' }} />
-                        )}
+                        <ShowChartIcon sx={{ fontSize: 20, color: isDark ? 'rgb(16, 185, 129)' : 'rgb(5, 150, 105)' }} />
                       </Box>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.9375rem', color: 'text.primary' }}>
-                            {result.symbol || 'N/A'}
-                          </Typography>
-                          <Box
-                            sx={{
-                              px: 1,
-                              py: 0.25,
-                              borderRadius: 1,
-                              backgroundColor: isPositive
-                                ? isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)'
-                                : isDark ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
-                            }}
-                          >
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                fontWeight: 700,
-                                color: isPositive ? 'success.main' : 'error.main',
-                                fontSize: '0.8125rem',
-                              }}
-                            >
-                              {returnPercent >= 0 ? '+' : ''}{returnPercent.toFixed(1)}%
-                            </Typography>
-                          </Box>
-                        </Box>
+                      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.9375rem', color: 'text.primary', lineHeight: 1.2 }}>
+                          {result.symbol || 'N/A'}
+                        </Typography>
                         <Typography 
                           variant="caption" 
                           color="text.secondary" 
                           sx={{ 
                             fontSize: '0.8125rem', 
                             display: 'block',
-                            mb: 0.75,
-                            fontWeight: 500,
+                            fontWeight: 400,
+                            lineHeight: 1.3,
                           }}
                         >
                           {result.custom_name || result.strategy_name || 'Unknown Strategy'}
@@ -658,10 +641,10 @@ export default function Header() {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
                           {sharpeRatio !== null && sharpeRatio !== undefined && (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', fontWeight: 400 }}>
                                 Sharpe:
                               </Typography>
-                              <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.primary' }}>
+                              <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 700, color: 'text.primary' }}>
                                 {sharpeRatio.toFixed(2)}
                               </Typography>
                             </Box>
@@ -671,22 +654,49 @@ export default function Header() {
                             color="text.secondary" 
                             sx={{ 
                               fontSize: '0.75rem',
-                              fontWeight: 500,
+                              fontWeight: 400,
                             }}
                           >
                             {formatRelativeTime(result.created_at)}
                           </Typography>
                         </Box>
                       </Box>
+                      <Box
+                        sx={{
+                          px: 1.25,
+                          py: 0.5,
+                          borderRadius: 1.5,
+                          backgroundColor: isPositive
+                            ? isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.15)'
+                            : isDark ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.15)',
+                          flexShrink: 0,
+                          alignSelf: 'flex-start',
+                          mt: 0.25,
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontWeight: 700,
+                            color: isPositive ? (isDark ? 'rgb(16, 185, 129)' : 'rgb(5, 150, 105)') : (isDark ? 'rgb(239, 68, 68)' : 'rgb(220, 38, 38)'),
+                            fontSize: '0.8125rem',
+                          }}
+                        >
+                          {returnPercent >= 0 ? '+' : ''}{returnPercent.toFixed(1)}%
+                        </Typography>
+                      </Box>
                     </Box>
                   </MenuItem>
                 )
               })
-            )}
+              )}
+            </Box>
+
+            {/* Footer - Fixed */}
             {recentBacktests.length > 0 && (
               <>
-                <Divider sx={{ my: 0.5, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }} />
-                <Box sx={{ px: 1.5, py: 1 }}>
+                <Divider sx={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)', flexShrink: 0 }} />
+                <Box sx={{ px: 1.5, py: 1, flexShrink: 0 }}>
                   <MenuItem
                     onClick={() => {
                       handleNotificationMenuClose()

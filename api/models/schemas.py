@@ -261,3 +261,18 @@ class StrategyLibraryDetailResponse(BaseModel):
     code: Optional[str] = None
     uses_framework: bool
     framework_components: Dict[str, str]
+
+
+class AIStrategyGenerateRequest(BaseModel):
+    """Request for AI strategy generation"""
+    prompt: str = Field(..., min_length=10, description="Description of the strategy to generate")
+    strategy_type: Optional[str] = Field(None, description="Optional: momentum, mean_reversion, or other")
+
+
+class AIStrategyGenerateResponse(BaseModel):
+    """Response from AI strategy generation"""
+    code: str
+    name: str
+    description: str
+    error: Optional[str] = None
+    message: Optional[str] = None

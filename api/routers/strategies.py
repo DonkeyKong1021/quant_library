@@ -3,6 +3,7 @@ Strategy endpoints
 """
 
 import sys
+import logging
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List
@@ -12,12 +13,16 @@ project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
+logger = logging.getLogger(__name__)
+
 from api.models.schemas import (
     StrategyListResponse,
     StrategyParamsResponse,
     StrategyLibraryListResponse,
     StrategyLibraryDetailResponse,
     StrategyLibraryItem,
+    AIStrategyGenerateRequest,
+    AIStrategyGenerateResponse,
 )
 
 router = APIRouter()
@@ -228,3 +233,209 @@ async def get_library_strategy_code(strategy_id: str):
         "name": strategy.name,
         "code": strategy.code
     }
+
+
+# ============================================================================
+# AI Strategy Generation Endpoint
+# ============================================================================
+
+def _get_ai_client():
+    """Get an AI client based on available API keys."""
+    import os
+    
+    openai_key = os.getenv("OPENAI_API_KEY")
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    
+    if openai_key:
+        try:
+            from openai import OpenAI
+            return OpenAI(api_key=openai_key), "openai"
+        except ImportError:
+            logger.warning("OpenAI package not installed")
+            return None, None
+    
+    if anthropic_key:
+        try:
+            import anthropic
+            return anthropic.Anthropic(api_key=anthropic_key), "anthropic"
+        except ImportError:
+            logger.warning("Anthropic package not installed")
+            return None, None
+    
+    return None, None
+
+
+def _get_strategy_generation_prompt() -> str:
+    """Get the system prompt for strategy generation."""
+    return """You are an expert quantitative trading strategy developer specializing in Python.
+
+You write trading strategies that inherit from the QuantLib Strategy base class. Your strategies must:
+1. Import from quantlib.strategies import Strategy
+2. Define a class that inherits from Strategy
+3. Implement an initialize method (optional but recommended)
+4. Implement an on_data method (required) that receives context and data
+5. Use context.order_target_percent(symbol, percentage) to place orders (0.0 = no position, 1.0 = 100% long, -1.0 = 100% short)
+6. Use indicators from quantlib.indicators (sma, ema, rsi, bollinger_bands, macd, etc.)
+
+Available indicators:
+- sma(series, window) - Simple Moving Average
+- ema(series, window) - Exponential Moving Average  
+- rsi(series, window) - Relative Strength Index
+- bollinger_bands(series, window, num_std) - Returns (upper, middle, lower)
+- macd(series, fast, slow, signal) - Returns (macd_line, signal_line, histogram)
+
+Context provides:
+- context.symbol - The trading symbol
+- context.order_target_percent(symbol, percentage) - Place orders
+- context.portfolio - Portfolio state
+- context.current_time - Current timestamp
+
+Data is a pandas DataFrame with columns: Open, High, Low, Close, Volume
+
+Write clean, well-commented Python code. Include proper error handling and data validation."""
+
+
+def _call_ai_strategy_generation(client, provider: str, prompt: str, strategy_type: Optional[str] = None) -> dict:
+    """Call AI API to generate strategy code."""
+    import json
+    import re
+    
+    system_prompt = _get_strategy_generation_prompt()
+    
+    user_prompt = f"""Generate a complete Python trading strategy based on this description:
+
+{prompt}
+
+{"Strategy type preference: " + strategy_type if strategy_type else ""}
+
+Provide the code in this exact JSON format:
+{{
+    "name": "StrategyClassName",
+    "description": "Brief description of what the strategy does",
+    "code": "complete Python code here with proper imports and class definition"
+}}
+
+The code should be a complete, runnable strategy class that follows QuantLib conventions."""
+
+    try:
+        if provider == "openai":
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.7,
+                max_tokens=2000,
+                timeout=30
+            )
+            content = response.choices[0].message.content
+        else:  # anthropic
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=2000,
+                system=system_prompt,
+                messages=[
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+            content = response.content[0].text
+        
+        # Extract JSON from response
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0]
+        elif "```python" in content:
+            # If code is in python block, extract it and build response
+            code = content.split("```python")[1].split("```")[0].strip()
+            # Try to extract class name
+            class_match = re.search(r'class\s+(\w+)', code)
+            class_name = class_match.group(1) if class_match else "GeneratedStrategy"
+            # Convert CamelCase to readable name
+            readable_name = re.sub(r'([A-Z])', r' \1', class_name.replace("Strategy", "")).strip()
+            return {
+                "name": readable_name or "Generated Strategy",
+                "description": prompt[:100] + "...",
+                "code": code
+            }
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0]
+        
+        result = json.loads(content.strip())
+        return result
+        
+    except json.JSONDecodeError:
+        # If JSON parsing fails, try to extract code directly
+        code_match = re.search(r'(from quantlib\.strategies import Strategy.*?)(?=\n\n|\Z)', content, re.DOTALL)
+        if code_match:
+            code = code_match.group(1).strip()
+            class_match = re.search(r'class\s+(\w+)', code)
+            class_name = class_match.group(1) if class_match else "GeneratedStrategy"
+            # Convert CamelCase to readable name
+            readable_name = re.sub(r'([A-Z])', r' \1', class_name.replace("Strategy", "")).strip()
+            return {
+                "name": readable_name or "Generated Strategy",
+                "description": prompt[:100] + "...",
+                "code": code
+            }
+        raise
+
+
+@router.post("/generate", response_model=AIStrategyGenerateResponse)
+async def generate_strategy(request: AIStrategyGenerateRequest):
+    """
+    Generate a trading strategy using AI based on a natural language description.
+    
+    Requires either OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable.
+    """
+    import json
+    import re
+    
+    client, provider = _get_ai_client()
+    
+    if client is None:
+        return AIStrategyGenerateResponse(
+            code="",
+            name="",
+            description="",
+            error="no_api_key",
+            message="No AI API key configured. Add OPENAI_API_KEY or ANTHROPIC_API_KEY to your .env file."
+        )
+    
+    try:
+        result = _call_ai_strategy_generation(client, provider, request.prompt, request.strategy_type)
+        
+        # Validate and clean the code
+        code = result.get("code", "").strip()
+        if not code:
+            raise ValueError("Generated code is empty")
+        
+        # Ensure it has required imports
+        if "from quantlib.strategies import Strategy" not in code:
+            code = "from quantlib.strategies import Strategy\n\n" + code
+        
+        return AIStrategyGenerateResponse(
+            code=code,
+            name=result.get("name", "Generated Strategy"),
+            description=result.get("description", request.prompt[:100]),
+            error=None,
+            message=None
+        )
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse AI response: {e}")
+        return AIStrategyGenerateResponse(
+            code="",
+            name="",
+            description="",
+            error="parse_error",
+            message=f"Failed to parse AI response: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"AI API error: {e}")
+        return AIStrategyGenerateResponse(
+            code="",
+            name="",
+            description="",
+            error="api_error",
+            message=f"AI API error: {str(e)}"
+        )

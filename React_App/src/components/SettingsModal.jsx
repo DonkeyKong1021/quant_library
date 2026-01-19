@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -16,35 +16,93 @@ import {
   FormControl,
   InputLabel,
   Slider,
+  Tabs,
+  Tab,
+  TextField,
+  InputAdornment,
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { useThemeMode } from '../contexts/ThemeContext'
 import { chartLibraryStorage } from '../utils/chartLibraryStorage'
+import { dataSourceStorage } from '../utils/dataSourceStorage'
+import { apiKeyStorage } from '../utils/apiKeyStorage'
 import CloseIcon from '@mui/icons-material/Close'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import SpeedIcon from '@mui/icons-material/Speed'
 import StorageIcon from '@mui/icons-material/Storage'
 import BarChartIcon from '@mui/icons-material/BarChart'
+import VpnKeyIcon from '@mui/icons-material/VpnKey'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 
 export default function SettingsModal({ open, onClose }) {
   const { isDark, toggleTheme } = useThemeMode()
-  const [notifications, setNotifications] = useState(true)
-  const [autoRefresh, setAutoRefresh] = useState(true)
-  const [refreshInterval, setRefreshInterval] = useState(30)
-  const [defaultDataSource, setDefaultDataSource] = useState('yahoo')
+  const [activeTab, setActiveTab] = useState(0)
+  const [notifications, setNotifications] = useState(() => {
+    const stored = localStorage.getItem('quantlib_notifications')
+    return stored !== null ? JSON.parse(stored) : true
+  })
+  const [autoRefresh, setAutoRefresh] = useState(() => {
+    const stored = localStorage.getItem('quantlib_auto_refresh')
+    return stored !== null ? JSON.parse(stored) : true
+  })
+  const [refreshInterval, setRefreshInterval] = useState(() => {
+    const stored = localStorage.getItem('quantlib_refresh_interval')
+    return stored ? parseInt(stored, 10) : 30
+  })
+  const [defaultDataSource, setDefaultDataSource] = useState(() => dataSourceStorage.get())
   const [chartLibrary, setChartLibrary] = useState(() => chartLibraryStorage.get())
+  
+  // API keys state
+  const [apiKeys, setApiKeys] = useState(() => apiKeyStorage.getAll())
+  const [showApiKeys, setShowApiKeys] = useState({
+    alpha_vantage: false,
+    polygon: false,
+    openai: false,
+    anthropic: false,
+  })
+
+  // Load settings on mount
+  useEffect(() => {
+    if (open) {
+      setApiKeys(apiKeyStorage.getAll())
+      setDefaultDataSource(dataSourceStorage.get())
+      setChartLibrary(chartLibraryStorage.get())
+    }
+  }, [open])
 
   const handleSave = () => {
-    // In a real app, save settings to localStorage or backend
+    // Save API keys
+    apiKeyStorage.setAll(apiKeys)
+    
+    // Save data source
+    dataSourceStorage.set(defaultDataSource)
+    
+    // Save other settings
+    localStorage.setItem('quantlib_notifications', JSON.stringify(notifications))
+    localStorage.setItem('quantlib_auto_refresh', JSON.stringify(autoRefresh))
+    localStorage.setItem('quantlib_refresh_interval', refreshInterval.toString())
+    
+    // Chart library is saved on change, but ensure it's saved here too
+    chartLibraryStorage.set(chartLibrary)
+    
     onClose()
+  }
+
+  const handleApiKeyChange = (key, value) => {
+    setApiKeys((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const toggleApiKeyVisibility = (key) => {
+    setShowApiKeys((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="sm"
+      maxWidth="md"
       fullWidth
       PaperProps={{
         sx: {
@@ -74,199 +132,361 @@ export default function SettingsModal({ open, onClose }) {
         </IconButton>
       </DialogTitle>
 
-      <DialogContent>
-        <Box sx={{ py: 2 }}>
-          {/* Appearance Section */}
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
-            Appearance
-          </Typography>
-          <Box
+      <DialogContent sx={{ p: 0 }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs
+            value={activeTab}
+            onChange={(e, newValue) => setActiveTab(newValue)}
+            variant="fullWidth"
             sx={{
-              p: 2,
-              borderRadius: 2,
-              backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-              border: '1px solid',
-              borderColor: 'divider',
-              mb: 3,
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 500,
+                minHeight: 48,
+              },
             }}
           >
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={isDark}
-                  onChange={toggleTheme}
-                  color="primary"
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <DarkModeIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
-                  <Typography>Dark Mode</Typography>
-                </Box>
-              }
-              sx={{ width: '100%', justifyContent: 'space-between', ml: 0 }}
-              labelPlacement="start"
-            />
-          </Box>
+            <Tab label="General" icon={<DarkModeIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+            <Tab label="Data" icon={<StorageIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+            <Tab label="Charts" icon={<BarChartIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+          </Tabs>
+        </Box>
 
-          <Divider sx={{ my: 2 }} />
-
-          {/* Notifications Section */}
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
-            Notifications
-          </Typography>
-          <Box
-            sx={{
-              p: 2,
-              borderRadius: 2,
-              backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-              border: '1px solid',
-              borderColor: 'divider',
-              mb: 3,
-            }}
-          >
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={notifications}
-                  onChange={(e) => setNotifications(e.target.checked)}
-                  color="primary"
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <NotificationsIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
-                  <Typography>Enable Notifications</Typography>
-                </Box>
-              }
-              sx={{ width: '100%', justifyContent: 'space-between', ml: 0 }}
-              labelPlacement="start"
-            />
-          </Box>
-
-          <Divider sx={{ my: 2 }} />
-
-          {/* Data Section */}
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
-            Data Settings
-          </Typography>
-          <Box
-            sx={{
-              p: 2,
-              borderRadius: 2,
-              backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-              border: '1px solid',
-              borderColor: 'divider',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2.5,
-            }}
-          >
-            <FormControl fullWidth size="small">
-              <InputLabel>Default Data Source</InputLabel>
-              <Select
-                value={defaultDataSource}
-                label="Default Data Source"
-                onChange={(e) => setDefaultDataSource(e.target.value)}
-                startAdornment={
-                  <StorageIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />
-                }
-              >
-                <MenuItem value="yahoo">Yahoo Finance</MenuItem>
-                <MenuItem value="alpha_vantage">Alpha Vantage</MenuItem>
-                <MenuItem value="polygon">Polygon.io</MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  color="primary"
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <SpeedIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
-                  <Typography>Auto-refresh Data</Typography>
-                </Box>
-              }
-              sx={{ width: '100%', justifyContent: 'space-between', ml: 0 }}
-              labelPlacement="start"
-            />
-
-            {autoRefresh && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-              >
-                <Box sx={{ px: 1 }}>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Refresh Interval: {refreshInterval} seconds
-                  </Typography>
-                  <Slider
-                    value={refreshInterval}
-                    onChange={(e, value) => setRefreshInterval(value)}
-                    min={10}
-                    max={120}
-                    step={10}
-                    marks={[
-                      { value: 10, label: '10s' },
-                      { value: 60, label: '60s' },
-                      { value: 120, label: '120s' },
-                    ]}
-                    sx={{ mt: 1 }}
-                  />
-                </Box>
-              </motion.div>
-            )}
-          </Box>
-
-          <Divider sx={{ my: 2 }} />
-
-          {/* Chart Settings Section */}
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
-            Chart Settings
-          </Typography>
-          <Box
-            sx={{
-              p: 2,
-              borderRadius: 2,
-              backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-              border: '1px solid',
-              borderColor: 'divider',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2.5,
-            }}
-          >
-            <FormControl fullWidth size="small">
-              <InputLabel>Chart Library</InputLabel>
-              <Select
-                value={chartLibrary}
-                label="Chart Library"
-                onChange={(e) => {
-                  const newLibrary = e.target.value
-                  setChartLibrary(newLibrary)
-                  chartLibraryStorage.set(newLibrary)
-                  // Trigger chart library change event
-                  window.dispatchEvent(new Event('chartLibraryChanged'))
+        <Box sx={{ py: 3, px: 3, minHeight: 400, maxHeight: 500, overflow: 'auto' }}>
+          {/* General Tab */}
+          {activeTab === 0 && (
+            <Box>
+              {/* Appearance Section */}
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
+                Appearance
+              </Typography>
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  mb: 3,
                 }}
-                startAdornment={
-                  <BarChartIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />
-                }
               >
-                <MenuItem value="plotly">Plotly (Default)</MenuItem>
-                <MenuItem value="tradingview">TradingView Lightweight Charts</MenuItem>
-              </Select>
-            </FormControl>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-              TradingView is optimized for financial charts with better performance for large datasets.
-              Plotly offers more chart types including heatmaps and histograms.
-            </Typography>
-          </Box>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={isDark}
+                      onChange={toggleTheme}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <DarkModeIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                      <Typography>Dark Mode</Typography>
+                    </Box>
+                  }
+                  sx={{ width: '100%', justifyContent: 'space-between', ml: 0 }}
+                  labelPlacement="start"
+                />
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Notifications Section */}
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
+                Notifications
+              </Typography>
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                }}
+              >
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={notifications}
+                      onChange={(e) => setNotifications(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <NotificationsIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                      <Typography>Enable Notifications</Typography>
+                    </Box>
+                  }
+                  sx={{ width: '100%', justifyContent: 'space-between', ml: 0 }}
+                  labelPlacement="start"
+                />
+              </Box>
+            </Box>
+          )}
+
+          {/* Data Tab */}
+          {activeTab === 1 && (
+            <Box>
+              {/* Data Source Section */}
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
+                Data Source
+              </Typography>
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  mb: 3,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2.5,
+                }}
+              >
+                <FormControl fullWidth size="small">
+                  <InputLabel>Default Data Source</InputLabel>
+                  <Select
+                    value={defaultDataSource}
+                    label="Default Data Source"
+                    onChange={(e) => setDefaultDataSource(e.target.value)}
+                  >
+                    <MenuItem value="yahoo">Yahoo Finance</MenuItem>
+                    <MenuItem value="alpha_vantage">Alpha Vantage</MenuItem>
+                    <MenuItem value="polygon">Polygon.io</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={autoRefresh}
+                      onChange={(e) => setAutoRefresh(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <SpeedIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                      <Typography>Auto-refresh Data</Typography>
+                    </Box>
+                  }
+                  sx={{ width: '100%', justifyContent: 'space-between', ml: 0 }}
+                  labelPlacement="start"
+                />
+
+                {autoRefresh && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                  >
+                    <Box sx={{ px: 1 }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Refresh Interval: {refreshInterval} seconds
+                      </Typography>
+                      <Slider
+                        value={refreshInterval}
+                        onChange={(e, value) => setRefreshInterval(value)}
+                        min={10}
+                        max={120}
+                        step={10}
+                        marks={[
+                          { value: 10, label: '10s' },
+                          { value: 60, label: '60s' },
+                          { value: 120, label: '120s' },
+                        ]}
+                        sx={{ mt: 1 }}
+                      />
+                    </Box>
+                  </motion.div>
+                )}
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* API Keys Section */}
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
+                API Keys
+              </Typography>
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2.5,
+                }}
+              >
+                {/* Alpha Vantage API Key */}
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Alpha Vantage API Key"
+                  type={showApiKeys.alpha_vantage ? 'text' : 'password'}
+                  value={apiKeys.alpha_vantage}
+                  onChange={(e) => handleApiKeyChange('alpha_vantage', e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <VpnKeyIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleApiKeyVisibility('alpha_vantage')}
+                          edge="end"
+                        >
+                          {showApiKeys.alpha_vantage ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  helperText="Required for Alpha Vantage data source"
+                />
+
+                {/* Polygon API Key */}
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Polygon.io API Key"
+                  type={showApiKeys.polygon ? 'text' : 'password'}
+                  value={apiKeys.polygon}
+                  onChange={(e) => handleApiKeyChange('polygon', e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <VpnKeyIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleApiKeyVisibility('polygon')}
+                          edge="end"
+                        >
+                          {showApiKeys.polygon ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  helperText="Required for Polygon.io data source"
+                />
+
+                {/* OpenAI API Key */}
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="OpenAI API Key"
+                  type={showApiKeys.openai ? 'text' : 'password'}
+                  value={apiKeys.openai}
+                  onChange={(e) => handleApiKeyChange('openai', e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <VpnKeyIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleApiKeyVisibility('openai')}
+                          edge="end"
+                        >
+                          {showApiKeys.openai ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  helperText="Required for AI-powered features (strategy generation, insights)"
+                />
+
+                {/* Anthropic API Key */}
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Anthropic API Key"
+                  type={showApiKeys.anthropic ? 'text' : 'password'}
+                  value={apiKeys.anthropic}
+                  onChange={(e) => handleApiKeyChange('anthropic', e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <VpnKeyIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleApiKeyVisibility('anthropic')}
+                          edge="end"
+                        >
+                          {showApiKeys.anthropic ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  helperText="Alternative to OpenAI for AI-powered features"
+                />
+
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mt: 1 }}>
+                  API keys are stored locally in your browser and never shared.
+                </Typography>
+              </Box>
+            </Box>
+          )}
+
+          {/* Charts Tab */}
+          {activeTab === 2 && (
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
+                Chart Settings
+              </Typography>
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2.5,
+                }}
+              >
+                <FormControl fullWidth size="small">
+                  <InputLabel>Chart Library</InputLabel>
+                  <Select
+                    value={chartLibrary}
+                    label="Chart Library"
+                    onChange={(e) => {
+                      const newLibrary = e.target.value
+                      setChartLibrary(newLibrary)
+                      chartLibraryStorage.set(newLibrary)
+                      // Trigger chart library change event
+                      window.dispatchEvent(new Event('chartLibraryChanged'))
+                    }}
+                  >
+                    <MenuItem value="plotly">Plotly (Default)</MenuItem>
+                    <MenuItem value="tradingview">TradingView Lightweight Charts</MenuItem>
+                  </Select>
+                </FormControl>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                  TradingView is optimized for financial charts with better performance for large datasets.
+                  Plotly offers more chart types including heatmaps and histograms.
+                </Typography>
+              </Box>
+            </Box>
+          )}
         </Box>
       </DialogContent>
 
