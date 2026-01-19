@@ -55,24 +55,11 @@ export default function FundamentalData({ symbol }) {
     )
   }
 
-  if (!fundamentals) {
-    return (
-      <Alert severity="warning">
-        Fundamental data not available for {symbol}. This feature requires integration with a data provider.
-      </Alert>
-    )
-  }
-
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>
         Fundamental Data: {symbol}
       </Typography>
-
-      <Alert severity="info" sx={{ mb: 3 }}>
-        Fundamental data integration is available in the backend. This display will show company fundamentals
-        when data providers are configured.
-      </Alert>
 
       <Grid container spacing={3}>
         {/* Company Info */}
@@ -120,7 +107,11 @@ export default function FundamentalData({ symbol }) {
                   <TableBody>
                     <TableRow>
                       <TableCell><strong>P/E Ratio</strong></TableCell>
-                      <TableCell>{fundamentals.pe_ratio || 'N/A'}</TableCell>
+                      <TableCell>
+                        {fundamentals.pe_ratio !== null && fundamentals.pe_ratio !== undefined
+                          ? Number(fundamentals.pe_ratio).toFixed(2)
+                          : 'N/A'}
+                      </TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell><strong>EPS</strong></TableCell>
@@ -155,7 +146,7 @@ export default function FundamentalData({ symbol }) {
                   </Typography>
                   <Typography variant="h6">
                     {fundamentals.revenue 
-                      ? `$${(fundamentals.revenue / 1e6).toFixed(0)}M`
+                      ? `$${Math.round(fundamentals.revenue / 1e6).toLocaleString()}M`
                       : 'N/A'}
                   </Typography>
                 </Grid>
@@ -165,7 +156,7 @@ export default function FundamentalData({ symbol }) {
                   </Typography>
                   <Typography variant="h6">
                     {fundamentals.net_income 
-                      ? `$${(fundamentals.net_income / 1e6).toFixed(0)}M`
+                      ? `$${Math.round(fundamentals.net_income / 1e6).toLocaleString()}M`
                       : 'N/A'}
                   </Typography>
                 </Grid>
@@ -175,7 +166,7 @@ export default function FundamentalData({ symbol }) {
                   </Typography>
                   <Typography variant="h6">
                     {fundamentals.total_assets 
-                      ? `$${(fundamentals.total_assets / 1e6).toFixed(0)}M`
+                      ? `$${Math.round(fundamentals.total_assets / 1e6).toLocaleString()}M`
                       : 'N/A'}
                   </Typography>
                 </Grid>
@@ -185,7 +176,7 @@ export default function FundamentalData({ symbol }) {
                   </Typography>
                   <Typography variant="h6">
                     {fundamentals.cash 
-                      ? `$${(fundamentals.cash / 1e6).toFixed(0)}M`
+                      ? `$${Math.round(fundamentals.cash / 1e6).toLocaleString()}M`
                       : 'N/A'}
                   </Typography>
                 </Grid>

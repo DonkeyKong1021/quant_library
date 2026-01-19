@@ -12,6 +12,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from quantlib.data.fundamental_fetcher import FundamentalDataFetcher
+import pandas as pd
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -75,12 +76,38 @@ async def get_financial_statements(symbol: str, statement_type: str = 'income'):
     try:
         symbol = symbol.upper()
         
-        # Stub implementation
+        # Fetch financial statements using Yahoo Finance
+        fetcher = FundamentalDataFetcher()
+        df = fetcher.fetch_financial_statements(symbol, statement_type)
+        
+        if df is None or df.empty:
+            return {
+                'symbol': symbol,
+                'statement_type': statement_type,
+                'data': [],
+                'periods': [],
+            }
+        
+        # Convert DataFrame to JSON-serializable format
+        # DataFrame has dates as columns, metrics as index
+        periods = [str(col) for col in df.columns]
+        data = []
+        for metric in df.index:
+            row = {'metric': str(metric)}
+            for i, period in enumerate(periods):
+                value = df.iloc[df.index.get_loc(metric), i]
+                # Handle NaN and convert to float or None
+                if pd.isna(value):
+                    row[period] = None
+                else:
+                    row[period] = float(value)
+            data.append(row)
+        
         return {
             'symbol': symbol,
             'statement_type': statement_type,
-            'data': [],
-            'periods': [],
+            'data': data,
+            'periods': periods,
         }
     except Exception as e:
         logger.error(f"Error fetching financial statements: {e}")

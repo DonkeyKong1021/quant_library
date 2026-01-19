@@ -25,7 +25,11 @@ import {
   Menu,
   MenuItem,
   Badge,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SaveIcon from '@mui/icons-material/Save'
 import DeleteIcon from '@mui/icons-material/Delete'
 import CodeIcon from '@mui/icons-material/Code'
@@ -64,6 +68,10 @@ export default function StrategyBuilder() {
   const [exportMenuAnchor, setExportMenuAnchor] = useState(null)
   const [importFileInputRef, setImportFileInputRef] = useState(null)
   const [aiGeneratorOpen, setAiGeneratorOpen] = useState(false)
+  const [expandedAccordions, setExpandedAccordions] = useState({
+    browseSave: true,
+    codeEditor: true,
+  })
 
   // Track initial state for unsaved changes detection
   const initialStateRef = useRef({ code: '', name: '', description: '' })
@@ -387,137 +395,156 @@ export default function StrategyBuilder() {
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {/* Strategy Selectors */}
-        <Paper sx={{ p: 4, elevation: 1 }}>
-          <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ mb: 2 }}>
-            <Tab label="Browse" />
-            <Tab label="Saved" />
-          </Tabs>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* Browse & Save Strategies Accordion */}
+        <Accordion
+          expanded={expandedAccordions.browseSave}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordions((prev) => ({ ...prev, browseSave: isExpanded }))
+          }}
+          sx={{ mb: 0 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Browse & Save Strategies
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ mb: 2 }}>
+              <Tab label="Browse" />
+              <Tab label="Saved" />
+            </Tabs>
 
-          {tabValue === 0 && (
-            <Box>
-              {loading && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                  <CircularProgress />
-                </Box>
-              )}
-              <StrategyBrowse 
-                onSelectTemplate={handleTemplateSelect}
-                onSelectLibraryStrategy={handleLibraryStrategySelect}
-              />
-            </Box>
-          )}
-
-          {tabValue === 1 && (
-            <Box>
-              <Box sx={{ mb: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Search strategies..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  }}
+            {tabValue === 0 && (
+              <Box>
+                {loading && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                )}
+                <StrategyBrowse 
+                  onSelectTemplate={handleTemplateSelect}
+                  onSelectLibraryStrategy={handleLibraryStrategySelect}
                 />
-                <IconButton
-                  onClick={(e) => setExportMenuAnchor(e.currentTarget)}
-                  title="Export/Import"
-                >
-                  <MoreVertIcon />
-                </IconButton>
               </Box>
+            )}
 
-              {filteredStrategies.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 6 }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                    {searchQuery ? 'No strategies match your search.' : 'No saved strategies yet.'}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    {searchQuery ? 'Try a different search term.' : 'Create and save a strategy to see it here.'}
-                  </Typography>
+            {tabValue === 1 && (
+              <Box>
+                <Box sx={{ mb: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search strategies..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <IconButton
+                    onClick={(e) => setExportMenuAnchor(e.currentTarget)}
+                    title="Export/Import"
+                  >
+                    <MoreVertIcon />
+                  </IconButton>
                 </Box>
-              ) : (
-                <>
-                  {searchQuery && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      {filteredStrategies.length} strategy(ies) found
-                    </Typography>
-                  )}
-                  <List sx={{ py: 0 }}>
-                    {filteredStrategies.map((strategy) => (
-                      <ListItem 
-                        key={strategy.id} 
-                        divider
-                        sx={{
-                          py: 1.5,
-                          transition: 'background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                          backgroundColor: selectedStrategy?.id === strategy.id ? 'action.selected' : 'transparent',
-                          '&:hover': {
-                            backgroundColor: 'action.hover',
-                          },
-                        }}
-                      >
-                        <ListItemText
-                          primary={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
-                                {strategy.name}
-                              </Typography>
-                              {strategy.updatedAt && (
-                                <Typography variant="caption" color="text.secondary">
-                                  {new Date(strategy.updatedAt).toLocaleDateString()}
-                                </Typography>
-                              )}
-                            </Box>
-                          }
-                          secondary={
-                            <Typography variant="body2" color="text.secondary">
-                              {strategy.description || 'No description'}
-                            </Typography>
-                          }
-                        />
-                        <ListItemSecondaryAction>
-                          <IconButton
-                            edge="end"
-                            onClick={() => handleLoad(strategy)}
-                            size="small"
-                            sx={{ mr: 0.5 }}
-                            title="Load strategy"
-                          >
-                            <CodeIcon />
-                          </IconButton>
-                          <IconButton
-                            edge="end"
-                            onClick={() => handleDeleteClick(strategy.id)}
-                            size="small"
-                            color="error"
-                            title="Delete strategy"
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </ListItemSecondaryAction>
-                      </ListItem>
-                    ))}
-                  </List>
-                </>
-              )}
-            </Box>
-          )}
-        </Paper>
 
-        {/* Strategy Code Editor */}
-        <Paper sx={{ p: 4, elevation: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {filteredStrategies.length === 0 ? (
+                  <Box sx={{ textAlign: 'center', py: 6 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                      {searchQuery ? 'No strategies match your search.' : 'No saved strategies yet.'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      {searchQuery ? 'Try a different search term.' : 'Create and save a strategy to see it here.'}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <>
+                    {searchQuery && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {filteredStrategies.length} strategy(ies) found
+                      </Typography>
+                    )}
+                    <List sx={{ py: 0 }}>
+                      {filteredStrategies.map((strategy) => (
+                        <ListItem 
+                          key={strategy.id} 
+                          divider
+                          sx={{
+                            py: 1.5,
+                            transition: 'background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                            backgroundColor: selectedStrategy?.id === strategy.id ? 'action.selected' : 'transparent',
+                            '&:hover': {
+                              backgroundColor: 'action.hover',
+                            },
+                          }}
+                        >
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                                  {strategy.name}
+                                </Typography>
+                                {strategy.updatedAt && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    {new Date(strategy.updatedAt).toLocaleDateString()}
+                                  </Typography>
+                                )}
+                              </Box>
+                            }
+                            secondary={
+                              <Typography variant="body2" color="text.secondary">
+                                {strategy.description || 'No description'}
+                              </Typography>
+                            }
+                          />
+                          <ListItemSecondaryAction>
+                            <IconButton
+                              edge="end"
+                              onClick={() => handleLoad(strategy)}
+                              size="small"
+                              sx={{ mr: 0.5 }}
+                              title="Load strategy"
+                            >
+                              <CodeIcon />
+                            </IconButton>
+                            <IconButton
+                              edge="end"
+                              onClick={() => handleDeleteClick(strategy.id)}
+                              size="small"
+                              color="error"
+                              title="Delete strategy"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </ListItemSecondaryAction>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </>
+                )}
+              </Box>
+            )}
+          </AccordionDetails>
+        </Accordion>
+
+        {/* Strategy Code Editor Accordion */}
+        <Accordion
+          expanded={expandedAccordions.codeEditor}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordions((prev) => ({ ...prev, codeEditor: isExpanded }))
+          }}
+          sx={{ mb: 0 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', mr: 1 }}>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Strategy Code
+                Strategy Code Editor
               </Typography>
               {errorCount > 0 && (
                 <Chip 
@@ -534,7 +561,9 @@ export default function StrategyBuilder() {
                 />
               )}
             </Box>
-            <Box sx={{ display: 'flex', gap: 1.5 }}>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2, gap: 1.5 }}>
               <Button
                 variant="outlined"
                 startIcon={<AutoAwesomeIcon />}
@@ -563,71 +592,71 @@ export default function StrategyBuilder() {
                 Save
               </Button>
             </Box>
-          </Box>
 
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Strategy Name"
-                value={strategyName}
-                onChange={(e) => setStrategyName(e.target.value)}
-                fullWidth
-                size="small"
-                placeholder="e.g., My Custom Strategy"
-              />
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Strategy Name"
+                  value={strategyName}
+                  onChange={(e) => setStrategyName(e.target.value)}
+                  fullWidth
+                  size="small"
+                  placeholder="e.g., My Custom Strategy"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Description (optional)"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  fullWidth
+                  size="small"
+                  placeholder="Brief description of the strategy"
+                />
+              </Grid>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Description (optional)"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                fullWidth
-                size="small"
-                placeholder="Brief description of the strategy"
-              />
-            </Grid>
-          </Grid>
 
-          {validationResult && (
-            <Box sx={{ mb: 2 }}>
-              {validationResult.errors.length > 0 && (
-                <Alert severity="error" sx={{ mb: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    Errors ({validationResult.errors.length}):
-                  </Typography>
-                  <Box component="ul" sx={{ margin: 0, paddingLeft: 2.5, mb: 0 }}>
-                    {validationResult.errors.map((error, index) => (
-                      <Box component="li" key={index}>
-                        <Typography variant="body2">{error}</Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                </Alert>
-              )}
-              {validationResult.warnings.length > 0 && (
-                <Alert severity="warning" sx={{ mb: validationResult.errors.length > 0 ? 1 : 0 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    Warnings ({validationResult.warnings.length}):
-                  </Typography>
-                  <Box component="ul" sx={{ margin: 0, paddingLeft: 2.5, mb: 0 }}>
-                    {validationResult.warnings.map((warning, index) => (
-                      <Box component="li" key={index}>
-                        <Typography variant="body2">{warning}</Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                </Alert>
-              )}
-              {validationResult.valid && validationResult.errors.length === 0 && validationResult.warnings.length === 0 && (
-                <Alert severity="success" sx={{ mb: 0 }}>
-                  Strategy code structure is valid!
-                </Alert>
-              )}
-            </Box>
-          )}
+            {validationResult && (
+              <Box sx={{ mb: 2 }}>
+                {validationResult.errors.length > 0 && (
+                  <Alert severity="error" sx={{ mb: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                      Errors ({validationResult.errors.length}):
+                    </Typography>
+                    <Box component="ul" sx={{ margin: 0, paddingLeft: 2.5, mb: 0 }}>
+                      {validationResult.errors.map((error, index) => (
+                        <Box component="li" key={index}>
+                          <Typography variant="body2">{error}</Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Alert>
+                )}
+                {validationResult.warnings.length > 0 && (
+                  <Alert severity="warning" sx={{ mb: validationResult.errors.length > 0 ? 1 : 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                      Warnings ({validationResult.warnings.length}):
+                    </Typography>
+                    <Box component="ul" sx={{ margin: 0, paddingLeft: 2.5, mb: 0 }}>
+                      {validationResult.warnings.map((warning, index) => (
+                        <Box component="li" key={index}>
+                          <Typography variant="body2">{warning}</Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Alert>
+                )}
+                {validationResult.valid && validationResult.errors.length === 0 && validationResult.warnings.length === 0 && (
+                  <Alert severity="success" sx={{ mb: 0 }}>
+                    Strategy code structure is valid!
+                  </Alert>
+                )}
+              </Box>
+            )}
 
-          <StrategyEditor code={code} onChange={setCode} height="600px" />
-        </Paper>
+            <StrategyEditor code={code} onChange={setCode} height="600px" />
+          </AccordionDetails>
+        </Accordion>
       </Box>
 
       {/* Save Dialog */}

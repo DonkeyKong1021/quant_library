@@ -23,6 +23,7 @@ export default function StrategyEditor({ code, onChange, height = '500px', readO
           : '0 1px 3px rgba(0, 0, 0, 0.12)',
         background: isDark ? 'rgba(30, 41, 59, 0.5)' : 'rgba(255, 255, 255, 0.8)',
         transition: 'all 0.2s ease',
+        padding: 1,
         '&:hover': {
           boxShadow: isDark
             ? '0 4px 12px rgba(0, 0, 0, 0.4)'
@@ -52,7 +53,8 @@ export default function StrategyEditor({ code, onChange, height = '500px', readO
           cursorSmoothCaretAnimation: 'on',
           renderLineHighlight: 'all',
           roundedSelection: false,
-          padding: { top: 8, bottom: 8 },
+          padding: { top: 16, bottom: 16, left: 12, right: 12 },
+          lineHeight: 21,
           suggestOnTriggerCharacters: true,
           acceptSuggestionOnEnter: 'on',
           quickSuggestions: true,
