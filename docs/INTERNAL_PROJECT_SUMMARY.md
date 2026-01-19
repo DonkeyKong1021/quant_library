@@ -1,5 +1,7 @@
 # QuantLib React App Conversion - Project Summary
 
+> **Note**: This is an internal documentation file for developers and maintainers. It describes the React app conversion project and may contain outdated information. For user-facing documentation, see the main [README](../README.md) and [React App README](../React_App/README.md).
+
 ## Overview
 
 Successfully created a React web application and FastAPI backend to convert the existing Streamlit dashboard into a modern web application architecture.

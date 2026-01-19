@@ -1,16 +1,22 @@
 # Data Source Architecture & Database Design
 
-## How Data Sources Work with the Database
+## Overview
 
-### Current Architecture
+QuantLib uses **separate PostgreSQL databases for each data source**. This architecture provides complete data isolation, clear data provenance, and prevents conflicts between different data sources.
 
-**Single Unified Database**
-- All data sources (Yahoo Finance, Alpha Vantage, Polygon.io) store data in the **same database table** (`ohlcv_data`)
-- Data is identified by: `(symbol, timestamp, interval)` - this is the primary key
-- The database **does NOT track which data source was used** to fetch the data
-- Multiple sources can contribute data for the same symbol/timestamp/interval combination
+## Current Architecture
+
+### Multiple Databases Per Source
+
+**Separate database per data source:**
+- `quant_library_yahoo` - Yahoo Finance data
+- `quant_library_alphavantage` - Alpha Vantage data
+- `quant_library_polygon` - Polygon.io data
+- `quant_library` - Default database (backtest results, API keys, metadata)
 
 ### Database Schema
+
+Each source database uses the same schema:
 
 ```sql
 ohlcv_data (
@@ -27,10 +33,10 @@ ohlcv_data (
 ```
 
 **Key Points:**
-- One row per symbol/timestamp/interval combination
-- If you fetch AAPL from Yahoo Finance and then from Alpha Vantage, the **last write wins**
-- No metadata tracking which source provided which data point
-- Data is overwritten on conflict (same symbol/timestamp/interval)
+- One row per symbol/timestamp/interval combination within each database
+- Each data source has its own isolated database
+- Data from different sources cannot conflict with each other
+- Clear data provenance - you know exactly which database contains which source's data
 
 ### How Data Flows
 
@@ -41,60 +47,31 @@ ohlcv_data (
        │ fetch_ohlcv(symbol, start, end)
        ▼
 ┌─────────────────┐
-│ DataStore.save() │
+│ DataStore.save() │ (with data_source parameter)
 └────────┬─────────┘
          │
+         │ Routes to source-specific database
          │ Upsert strategy:
          │ - Delete existing data in date range
          │ - Insert new data
          ▼
 ┌──────────────────┐
+│  quant_library_*  │
+│  (source DB)     │
 │  ohlcv_data      │
-│  (single table)  │
 └──────────────────┘
 ```
 
-## Should You Use Multiple Databases?
+### Implementation
 
-### Current Approach: Single Database (Recommended for Most Cases)
+- `DataStore(data_source='yahoo')` routes to `quant_library_yahoo`
+- `DataStore(data_source='alpha_vantage')` routes to `quant_library_alphavantage`
+- `DataStore(data_source='polygon')` routes to `quant_library_polygon`
+- Symbol listing aggregates across all source databases
 
-**Pros:**
-✅ **Simplicity**: One database to manage, one connection pool
-✅ **Easier queries**: No joins needed to get data for a symbol
-✅ **Unified caching**: All data sources benefit from the same cache
-✅ **Data consolidation**: Can mix data from different sources seamlessly
-✅ **Lower overhead**: Single database connection, less complexity
+## Architecture Benefits and Trade-offs
 
-**Cons:**
-❌ **Data source ambiguity**: Can't tell which source provided which data point
-❌ **Potential conflicts**: If two sources have different values for the same timestamp, last write wins
-❌ **No source comparison**: Can't easily compare data quality across sources
-
-### Alternative: Source-Tracked Single Database
-
-**Could add a `data_source` column:**
-```sql
-ohlcv_data (
-    symbol TEXT,
-    timestamp TIMESTAMP,
-    interval TEXT,
-    data_source TEXT,  -- 'yahoo', 'alpha_vantage', 'polygon'
-    ...
-    PRIMARY KEY (symbol, timestamp, interval, data_source)
-)
-```
-
-**Pros:**
-✅ Track which source provided each data point
-✅ Compare data quality across sources
-✅ Keep data from multiple sources without conflict
-
-**Cons:**
-❌ More complex queries (need to choose/filter by source)
-❌ Larger database (duplicate data possible)
-❌ More complex logic to merge/choose data
-
-### Current Implementation: Multiple Databases Per Source
+### Benefits
 
 **Separate database per source:**
 - `quant_library_yahoo` - Yahoo Finance data
@@ -102,23 +79,48 @@ ohlcv_data (
 - `quant_library_polygon` - Polygon.io data
 - `quant_library` - Default database (backtest results, API keys)
 
-**Benefits:**
-✅ **Complete data separation**: Each source's data is isolated
-✅ **No data conflicts**: Different sources can't overwrite each other's data
-✅ **Source-specific optimization**: Can optimize each database independently
-✅ **Clear data provenance**: Know exactly which database contains which source's data
-✅ **Easier data management**: Backup/restore per source, different retention policies
+- ✅ **Complete data separation**: Each source's data is isolated
+- ✅ **No data conflicts**: Different sources can't overwrite each other's data
+- ✅ **Source-specific optimization**: Can optimize each database independently
+- ✅ **Clear data provenance**: Know exactly which database contains which source's data
+- ✅ **Easier data management**: Backup/restore per source, different retention policies
 
-**Trade-offs:**
-⚠️ **Query complexity**: Symbol listing requires querying all databases
-⚠️ **More connections**: Multiple database connections (but SQLAlchemy pools handle this)
-⚠️ **Setup complexity**: Need to create and initialize multiple databases
+### Trade-offs
 
-**Implementation:**
-- `DataStore(data_source='yahoo')` routes to `quant_library_yahoo`
-- `DataStore(data_source='alpha_vantage')` routes to `quant_library_alphavantage`
-- `DataStore(data_source='polygon')` routes to `quant_library_polygon`
-- Symbol listing aggregates across all source databases
+- ⚠️ **Query complexity**: Symbol listing requires querying all databases
+- ⚠️ **More connections**: Multiple database connections (but SQLAlchemy pools handle this)
+- ⚠️ **Setup complexity**: Need to create and initialize multiple databases
+
+## Alternative Architectures (Not Currently Used)
+
+### Single Unified Database
+
+This approach would store all data sources in one database:
+
+**Pros:**
+- Simplicity: One database to manage, one connection pool
+- Easier queries: No joins needed to get data for a symbol
+- Unified caching: All data sources benefit from the same cache
+- Lower overhead: Single database connection
+
+**Cons:**
+- Data source ambiguity: Can't tell which source provided which data point
+- Potential conflicts: If two sources have different values for the same timestamp, last write wins
+- No source comparison: Can't easily compare data quality across sources
+
+### Source-Tracked Single Database
+
+This approach would add a `data_source` column to track the source:
+
+**Pros:**
+- Track which source provided each data point
+- Compare data quality across sources
+- Keep data from multiple sources without conflict
+
+**Cons:**
+- More complex queries (need to choose/filter by source)
+- Larger database (duplicate data possible)
+- More complex logic to merge/choose data
 
 ## Date Range Limitations by Source
 
@@ -143,17 +145,7 @@ ohlcv_data (
 - **Date range**: Since 2003 (extensive history)
 - **Intervals**: Daily, hourly, minute-level data
 
-## Current Architecture (Multiple Databases)
-
-### Implementation
-
-**Separate database per data source:**
-- Each source (Yahoo Finance, Alpha Vantage, Polygon.io) has its own PostgreSQL database
-- DataStore routes to the correct database based on `data_source` parameter
-- Symbol listing aggregates across all source databases
-- Backtest results and API keys remain in the default database
-
-### Configuration
+## Configuration
 
 **Environment variables:**
 - `DATABASE_URL_YAHOO` - Yahoo Finance database
@@ -184,14 +176,12 @@ python scripts/init_database.py --source polygon
 ### Data Consistency Considerations
 
 **Current behavior:**
-- Fetching AAPL from Yahoo Finance saves to database
-- Later fetching AAPL from Alpha Vantage **overwrites** overlapping dates
-- This is generally fine since you're using sources as alternatives
+- Each data source stores data in its own database
+- Fetching AAPL from Yahoo Finance saves to `quant_library_yahoo`
+- Fetching AAPL from Alpha Vantage saves to `quant_library_alphavantage`
+- Data from different sources does not interact or conflict
 
-**To avoid mixing sources:**
-```python
-# Use force_refresh_all=True when switching sources
-store.save(symbol, data, replace_all=True)
-```
-
-This ensures clean data per source when switching.
+**Best Practices:**
+- Use `data_source` parameter when creating DataStore to ensure data goes to the correct database
+- When switching data sources, be aware that you're switching to a different database
+- Symbol listing aggregates across all databases, so you can see all available symbols regardless of source

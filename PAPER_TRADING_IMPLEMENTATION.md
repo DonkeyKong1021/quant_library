@@ -1,8 +1,10 @@
 # Paper Trading Implementation Status
 
+> **Note**: This document tracks the implementation status and requirements for the paper trading feature. Checkmarks (✅) indicate implemented components, while unchecked items (❌) indicate missing or incomplete functionality.
+
 ## Current State
 
-### ✅ What Exists
+### What Exists (✅ Implemented)
 
 1. **PaperTradingEngine** (`src/quantlib/live/paper_trading.py`)
    - Basic engine structure with portfolio management
@@ -24,7 +26,7 @@
    - UI components for session management
    - Service layer for API calls
 
-### ❌ What's Missing
+### What's Missing (❌ Not Implemented)
 
 ## Implementation Requirements
 
@@ -184,23 +186,23 @@
 ## Implementation Priority
 
 ### Phase 1: Core Functionality (MVP)
-1. ✅ Integrate PaperTradingEngine with API router
-2. ✅ Background task management (simple asyncio approach)
-3. ✅ Data fetching integration
-4. ✅ Strategy creation integration
-5. ✅ Basic error handling
+1. ❌ Integrate PaperTradingEngine with API router
+2. ❌ Background task management (simple asyncio approach)
+3. ❌ Data fetching integration
+4. ❌ Strategy creation integration
+5. ❌ Basic error handling
 
 ### Phase 2: Enhanced Features
-6. ✅ Additional API endpoints (trades, equity, positions, metrics)
-7. ✅ Performance metrics calculation
-8. ✅ React UI enhancements
-9. ✅ Better error handling and validation
+6. ❌ Additional API endpoints (trades, equity, positions, metrics)
+7. ❌ Performance metrics calculation
+8. ❌ React UI enhancements
+9. ❌ Better error handling and validation
 
 ### Phase 3: Production Ready
-10. ✅ Database persistence
-11. ✅ Real-time data streams
-12. ✅ Advanced task management (Celery)
-13. ✅ Comprehensive testing
+10. ❌ Database persistence
+11. ❌ Real-time data streams
+12. ❌ Advanced task management (Celery)
+13. ❌ Comprehensive testing
 
 ## Testing Requirements
 

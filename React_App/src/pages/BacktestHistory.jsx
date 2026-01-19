@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Container,
   Typography,
@@ -44,20 +44,28 @@ import { backtestService } from '../services/backtestService'
 
 export default function BacktestHistory() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  
   const [results, setResults] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
-  // Pagination
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(25)
+  // Pagination - read from URL or use defaults
+  const [page, setPage] = useState(() => {
+    const pageParam = searchParams.get('page')
+    return pageParam ? parseInt(pageParam, 10) : 0
+  })
+  const [rowsPerPage, setRowsPerPage] = useState(() => {
+    const rowsParam = searchParams.get('rowsPerPage')
+    return rowsParam ? parseInt(rowsParam, 10) : 25
+  })
   
-  // Filters
-  const [symbolFilter, setSymbolFilter] = useState('')
-  const [strategyFilter, setStrategyFilter] = useState('')
-  const [sortBy, setSortBy] = useState('created_at')
-  const [sortOrder, setSortOrder] = useState('DESC')
+  // Filters - read from URL or use defaults
+  const [symbolFilter, setSymbolFilter] = useState(() => searchParams.get('symbol') || '')
+  const [strategyFilter, setStrategyFilter] = useState(() => searchParams.get('strategy') || '')
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || 'created_at')
+  const [sortOrder, setSortOrder] = useState(() => searchParams.get('sortOrder') || 'DESC')
   
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -117,12 +125,26 @@ export default function BacktestHistory() {
     return () => clearTimeout(timer)
   }, [symbolFilter, strategyFilter])
 
+  // Update URL when state changes
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (page > 0) params.set('page', page.toString())
+    if (rowsPerPage !== 25) params.set('rowsPerPage', rowsPerPage.toString())
+    if (symbolFilter) params.set('symbol', symbolFilter)
+    if (strategyFilter) params.set('strategy', strategyFilter)
+    if (sortBy !== 'created_at') params.set('sortBy', sortBy)
+    if (sortOrder !== 'DESC') params.set('sortOrder', sortOrder)
+    
+    setSearchParams(params, { replace: true })
+  }, [page, rowsPerPage, symbolFilter, strategyFilter, sortBy, sortOrder, setSearchParams])
+
   const handleChangePage = (event, newPage) => {
     setPage(newPage)
   }
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10))
+    const newRowsPerPage = parseInt(event.target.value, 10)
+    setRowsPerPage(newRowsPerPage)
     setPage(0)
   }
 

@@ -1,5 +1,7 @@
 # Data Fetcher Search & Database Views - Improvement Suggestions
 
+> **Note**: This is an internal documentation file containing improvement suggestions for developers. These are ideas for future enhancements, not implemented features.
+
 ## Current Implementation Analysis
 
 ### Current Structure:

@@ -66,12 +66,6 @@ export default function Footer() {
   const { isDark } = useThemeMode()
   const currentYear = new Date().getFullYear()
   const [issueDialogOpen, setIssueDialogOpen] = useState(false)
-  const [throwError, setThrowError] = useState(false)
-
-  // Component that throws an error when rendered (for testing)
-  if (throwError) {
-    throw new Error('Test Error: This is a test error for issue reporting functionality! Click "Report an Issue" to report this error.')
-  }
 
   return (
     <Box
@@ -225,21 +219,6 @@ export default function Footer() {
                   }}
                 >
                   Report an Issue
-                </Button>
-                <Button
-                  onClick={() => setThrowError(true)}
-                  sx={{
-                    justifyContent: 'flex-start',
-                    color: 'error.main',
-                    fontSize: '0.875rem',
-                    textTransform: 'none',
-                    '&:hover': {
-                      color: 'error.dark',
-                      backgroundColor: 'transparent',
-                    },
-                  }}
-                >
-                  🧪 Test Error (for testing)
                 </Button>
               </Box>
             </motion.div>

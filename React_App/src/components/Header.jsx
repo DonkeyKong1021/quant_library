@@ -37,12 +37,15 @@ import HistoryIcon from '@mui/icons-material/History'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import ShowChartIcon from '@mui/icons-material/ShowChart'
+import BugReportIcon from '@mui/icons-material/BugReport'
+import ClearIcon from '@mui/icons-material/Clear'
 import CircularProgress from '@mui/material/CircularProgress'
 import { navigationItems, getNavigationItemsByGroup } from '../config/navigation'
 import QuickNav from './QuickNav'
 import ProfileModal from './ProfileModal'
 import SettingsModal from './SettingsModal'
 import DatabaseSelectorModal from './DatabaseSelectorModal'
+import IssueReportDialog from './IssueReportDialog'
 import { useThemeMode } from '../contexts/ThemeContext'
 import { backtestService } from '../services/backtestService'
 import { databaseStorage } from '../utils/databaseStorage'
@@ -82,6 +85,7 @@ export default function Header() {
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   const [databaseSelectorOpen, setDatabaseSelectorOpen] = useState(false)
+  const [issueDialogOpen, setIssueDialogOpen] = useState(false)
   const [currentDatabase, setCurrentDatabase] = useState(databaseStorage.get())
   const [recentBacktests, setRecentBacktests] = useState([])
   const [backtestsLoading, setBacktestsLoading] = useState(false)
@@ -135,6 +139,10 @@ export default function Header() {
   const handleNotificationClick = (resultId) => {
     handleNotificationMenuClose()
     navigate(`/backtest?resultId=${resultId}`)
+  }
+
+  const handleClearNotifications = () => {
+    setRecentBacktests([])
   }
 
   // Fetch recent backtests
@@ -449,6 +457,26 @@ export default function Header() {
               </Badge>
             </IconButton>
           </Tooltip>
+
+          {/* Report Issue Button */}
+          <Tooltip title="Report an Issue" arrow>
+            <IconButton
+              onClick={() => setIssueDialogOpen(true)}
+              sx={{
+                p: 1,
+                color: 'text.secondary',
+                '&:hover': {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'action.hover',
+                  color: 'error.main',
+                },
+              }}
+            >
+              <BugReportIcon />
+            </IconButton>
+          </Tooltip>
+
           <Menu
             anchorEl={notificationAnchorEl}
             open={Boolean(notificationAnchorEl)}
@@ -512,11 +540,32 @@ export default function Header() {
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, fontSize: '0.9375rem', color: 'text.primary' }}>
                   Recent Activity
                 </Typography>
-                {recentBacktests.length > 0 && (
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-                    {recentBacktests.length} {recentBacktests.length === 1 ? 'backtest' : 'backtests'}
-                  </Typography>
-                )}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  {recentBacktests.length > 0 && (
+                    <>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                        {recentBacktests.length} {recentBacktests.length === 1 ? 'backtest' : 'backtests'}
+                      </Typography>
+                      <IconButton
+                        onClick={handleClearNotifications}
+                        size="small"
+                        sx={{
+                          p: 0.5,
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'error.main',
+                            backgroundColor: isDark
+                              ? 'rgba(239, 68, 68, 0.1)'
+                              : 'rgba(239, 68, 68, 0.08)',
+                          },
+                        }}
+                        title="Clear notifications"
+                      >
+                        <ClearIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </>
+                  )}
+                </Box>
               </Box>
             </Box>
 
@@ -951,6 +1000,9 @@ export default function Header() {
         }}
         currentDatabase={currentDatabase}
       />
+
+      {/* Issue Report Dialog */}
+      <IssueReportDialog open={issueDialogOpen} onClose={() => setIssueDialogOpen(false)} />
     </AppBar>
   )
 }

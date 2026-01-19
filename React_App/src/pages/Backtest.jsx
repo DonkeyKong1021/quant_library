@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Container, Typography, Box, Paper, Button, useTheme, LinearProgress, Accordion, AccordionSummary, AccordionDetails } from '@mui/material'
+import { Container, Typography, Box, Paper, Button, useTheme, LinearProgress, Accordion, AccordionSummary, AccordionDetails, Grid } from '@mui/material'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation } from 'react-router-dom'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -7,6 +7,7 @@ import DataFetcher from '../components/DataFetcher'
 import StrategySelector from '../components/StrategySelector'
 import BacktestConfig from '../components/BacktestConfig'
 import ResultsDisplay from '../components/ResultsDisplay'
+import WorkflowStepper from '../components/WorkflowStepper'
 import { useThemeMode } from '../contexts/ThemeContext'
 
 
@@ -183,8 +184,30 @@ export default function Backtest() {
         />
       </Paper>
 
-      {/* Main Content */}
-      <Box sx={{ position: 'relative' }}>
+      {/* Side-by-side Layout: Stepper and Content */}
+      <Grid container spacing={3}>
+        {/* Workflow Stepper - Left Side */}
+        <Grid item xs={12} md={3}>
+          <Box sx={{ position: 'sticky', top: 100 }}>
+            <WorkflowStepper
+              steps={[
+                { id: 'fetch-data', label: 'Fetch Data', completed: !!data },
+                { id: 'select-strategy', label: 'Select Strategy', completed: !!strategy },
+                { id: 'configure-backtest', label: 'Configure', completed: !!config },
+                { id: 'run-results', label: 'Run & Results', completed: !!results },
+              ]}
+              currentStep={expandedAccordion}
+              onStepClick={(stepId) => {
+                setExpandedAccordion(stepId)
+                setUserHasManuallyExpanded(true)
+              }}
+            />
+          </Box>
+        </Grid>
+
+        {/* Main Content - Right Side */}
+        <Grid item xs={12} md={9}>
+          <Box sx={{ position: 'relative' }}>
         <Accordion
           expanded={expandedAccordion === 'fetch-data'}
           onChange={(event, isExpanded) => {
@@ -195,7 +218,7 @@ export default function Backtest() {
         >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Fetch Market Data
+              1. Fetch Market Data
             </Typography>
           </AccordionSummary>
           <AccordionDetails>
@@ -214,7 +237,7 @@ export default function Backtest() {
         >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Select Strategy
+              2. Select Strategy
             </Typography>
           </AccordionSummary>
           <AccordionDetails>
@@ -237,7 +260,7 @@ export default function Backtest() {
         >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Configure Backtest
+              3. Configure Backtest
             </Typography>
           </AccordionSummary>
           <AccordionDetails>
@@ -256,7 +279,7 @@ export default function Backtest() {
         >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Run & Results
+              4. Run & Results
             </Typography>
           </AccordionSummary>
           <AccordionDetails>
@@ -270,7 +293,9 @@ export default function Backtest() {
             />
           </AccordionDetails>
         </Accordion>
-      </Box>
+          </Box>
+        </Grid>
+      </Grid>
     </Container>
   )
 }

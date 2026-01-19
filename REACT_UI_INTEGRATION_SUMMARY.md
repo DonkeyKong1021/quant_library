@@ -1,12 +1,14 @@
 # React UI Integration Summary
 
+> **Note**: This document summarizes the integration status of QuantConnect-style features. It may contain outdated information as the codebase evolves. For current API documentation, see [API README](api/README.md).
+
 ## Overview
 
 This document summarizes the integration of new QuantConnect-style features into the React UI. All backend features from the QuantConnect parity roadmap have been integrated with API endpoints and React UI components.
 
 ## Completed Integrations
 
-### 1. Advanced Order Types ✅
+### 1. Advanced Order Types
 **Status**: Fully Integrated
 
 **Backend**:
@@ -20,7 +22,7 @@ This document summarizes the integration of new QuantConnect-style features into
 - **Options**: Market, Limit, Stop, Stop-Limit, Trailing Stop
 - **Location**: Backtest configuration panel
 
-### 2. Multiple Data Resolutions ✅
+### 2. Multiple Data Resolutions
 **Status**: Already Supported (Enhanced)
 
 **Backend**:
@@ -34,7 +36,7 @@ This document summarizes the integration of new QuantConnect-style features into
 - **Options**: 1d, 1h, 1m, 5m, 15m, 30m, 60m, 90m
 - **Location**: Data fetcher component (prominently displayed)
 
-### 3. Paper Trading ✅
+### 3. Paper Trading
 **Status**: Fully Integrated
 
 **Backend**:
@@ -51,7 +53,7 @@ This document summarizes the integration of new QuantConnect-style features into
 - **Navigation**: Added to navigation menu
 - **Services**: `paperTradingService.js`
 
-### 4. Fundamental Data ✅
+### 4. Fundamental Data
 **Status**: Fully Integrated
 
 **Backend**:
@@ -68,7 +70,7 @@ This document summarizes the integration of new QuantConnect-style features into
   - Financial metrics (revenue, net income, assets, cash)
 - **Services**: `fundamentalService.js`
 
-### 5. Algorithm Versioning ✅
+### 5. Algorithm Versioning
 **Status**: Fully Integrated
 
 **Backend**:
@@ -86,7 +88,7 @@ This document summarizes the integration of new QuantConnect-style features into
 
 **Note**: UI components for versioning can be added to StrategyBuilder page in future iterations.
 
-### 6. Algorithm Deployment ✅
+### 6. Algorithm Deployment
 **Status**: Fully Integrated
 
 **Backend**:

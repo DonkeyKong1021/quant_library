@@ -30,6 +30,7 @@ import DatabaseStatsModal from '../components/DatabaseStatsModal'
 import DatabaseSelectorModal from '../components/DatabaseSelectorModal'
 import { databaseStorage } from '../utils/databaseStorage'
 import StrategyPerformanceModal from '../components/StrategyPerformanceModal'
+import SectionNavigation from '../components/SectionNavigation'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import StorageIcon from '@mui/icons-material/Storage'
 import AssessmentIcon from '@mui/icons-material/Assessment'
@@ -420,6 +421,8 @@ export default function Dashboard() {
 
   return (
     <Container maxWidth="xl">
+      <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+        <Box sx={{ flex: 1 }}>
       {/* Hero Section */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -463,8 +466,9 @@ export default function Dashboard() {
       )}
 
       {/* Quick Actions */}
-      <StaggerContainer staggerDelay={0.08}>
-        <Grid container spacing={2} sx={{ mb: 3 }}>
+      <Box id="quick-actions">
+        <StaggerContainer staggerDelay={0.08}>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
           {quickActions.map((action) => {
             const Icon = action.icon
             return (
@@ -622,9 +626,11 @@ export default function Dashboard() {
           </Grid>
         </Grid>
       </StaggerContainer>
+      </Box>
 
       {/* High-Level Statistics - Compact Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <Box id="performance-overview">
+        <Grid container spacing={2} sx={{ mb: 3 }}>
         {/* Performance Overview Card */}
         {performanceStats && (
           <Grid item xs={12} sm={6} md={4}>
@@ -874,10 +880,11 @@ export default function Dashboard() {
           </Grid>
         )}
       </Grid>
-
+      </Box>
 
       {/* Quick Start Guide */}
-      <motion.div
+      <Box id="quick-start-guide">
+        <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5, duration: 0.4 }}
@@ -966,6 +973,7 @@ export default function Dashboard() {
           </Grid>
         </Paper>
       </motion.div>
+      </Box>
 
       {/* Modals */}
       <PerformanceDetailsModal
@@ -1036,6 +1044,19 @@ export default function Dashboard() {
         }}
         currentDatabase={currentDatabase}
       />
-    </Container>
-  )
-}
+          </Box>
+          {/* Section Navigation */}
+          <Box sx={{ display: { xs: 'none', lg: 'block' }, minWidth: 200, flexShrink: 0 }}>
+            <SectionNavigation
+              sections={[
+                { id: 'quick-actions', label: 'Quick Actions' },
+                { id: 'performance-overview', label: 'Performance' },
+                { id: 'quick-start-guide', label: 'Quick Start' },
+              ]}
+              orientation="vertical"
+            />
+          </Box>
+        </Box>
+      </Container>
+    )
+  }
