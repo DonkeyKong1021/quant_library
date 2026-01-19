@@ -16,7 +16,9 @@ if str(project_root) not in sys.path:
 
 from quantlib.indicators import (
     sma, ema, rsi, bollinger_bands, macd,
-    stochastic, adx, atr, obv, volume_sma
+    stochastic, adx, atr, obv, volume_sma,
+    ichimoku, vwap, keltner_channels, donchian_channels,
+    williams_r, cci, roc, volume_profile
 )
 
 router = APIRouter()
@@ -168,6 +170,93 @@ async def calculate_indicators(request: Dict[str, Any]):
                 results['volume_sma'] = {
                     'values': serialize_series(volume_sma_values),
                     'params': {'window': window}
+                }
+            
+            elif indicator_type == 'vwap':
+                if 'High' not in data_df.columns or 'Low' not in data_df.columns or 'Volume' not in data_df.columns:
+                    raise HTTPException(status_code=400, detail="VWAP requires High, Low, and Volume columns")
+                vwap_values = vwap(data_df['High'], data_df['Low'], close_prices, data_df['Volume'])
+                results['vwap'] = {
+                    'values': serialize_series(vwap_values),
+                    'params': {}
+                }
+            
+            elif indicator_type == 'ichimoku':
+                if 'High' not in data_df.columns or 'Low' not in data_df.columns:
+                    raise HTTPException(status_code=400, detail="Ichimoku requires High and Low columns")
+                ichimoku_result = ichimoku(data_df['High'], data_df['Low'], close_prices)
+                results['ichimoku'] = {
+                    'tenkan': serialize_series(ichimoku_result['tenkan']),
+                    'kijun': serialize_series(ichimoku_result['kijun']),
+                    'senkou_a': serialize_series(ichimoku_result['senkou_a']),
+                    'senkou_b': serialize_series(ichimoku_result['senkou_b']),
+                    'chikou': serialize_series(ichimoku_result['chikou']),
+                    'params': {}
+                }
+            
+            elif indicator_type == 'keltner_channels':
+                if 'High' not in data_df.columns or 'Low' not in data_df.columns:
+                    raise HTTPException(status_code=400, detail="Keltner Channels requires High and Low columns")
+                window = params.get('window', 20)
+                atr_mult = params.get('multiplier', 2.0)
+                keltner_result = keltner_channels(data_df['High'], data_df['Low'], close_prices, window, atr_mult)
+                results['keltner_channels'] = {
+                    'upper': serialize_series(keltner_result['upper']),
+                    'middle': serialize_series(keltner_result['middle']),
+                    'lower': serialize_series(keltner_result['lower']),
+                    'params': {'window': window, 'multiplier': atr_mult}
+                }
+            
+            elif indicator_type == 'donchian_channels':
+                if 'High' not in data_df.columns or 'Low' not in data_df.columns:
+                    raise HTTPException(status_code=400, detail="Donchian Channels requires High and Low columns")
+                window = params.get('window', 20)
+                donchian_result = donchian_channels(data_df['High'], data_df['Low'], window)
+                results['donchian_channels'] = {
+                    'upper': serialize_series(donchian_result['upper']),
+                    'middle': serialize_series(donchian_result['middle']),
+                    'lower': serialize_series(donchian_result['lower']),
+                    'params': {'window': window}
+                }
+            
+            elif indicator_type == 'williams_r':
+                if 'High' not in data_df.columns or 'Low' not in data_df.columns:
+                    raise HTTPException(status_code=400, detail="Williams %R requires High and Low columns")
+                window = params.get('window', 14)
+                wr_values = williams_r(data_df['High'], data_df['Low'], close_prices, window)
+                results['williams_r'] = {
+                    'values': serialize_series(wr_values),
+                    'params': {'window': window}
+                }
+            
+            elif indicator_type == 'cci':
+                if 'High' not in data_df.columns or 'Low' not in data_df.columns:
+                    raise HTTPException(status_code=400, detail="CCI requires High and Low columns")
+                window = params.get('window', 20)
+                cci_values = cci(data_df['High'], data_df['Low'], close_prices, window)
+                results['cci'] = {
+                    'values': serialize_series(cci_values),
+                    'params': {'window': window}
+                }
+            
+            elif indicator_type == 'roc':
+                window = params.get('window', 12)
+                roc_values = roc(close_prices, window)
+                results['roc'] = {
+                    'values': serialize_series(roc_values),
+                    'params': {'window': window}
+                }
+            
+            elif indicator_type == 'volume_profile':
+                if 'Volume' not in data_df.columns:
+                    raise HTTPException(status_code=400, detail="Volume Profile requires Volume column")
+                bins = params.get('bins', 20)
+                vp_result = volume_profile(close_prices, data_df['Volume'], bins)
+                # Volume profile returns a DataFrame with price bins and volumes
+                results['volume_profile'] = {
+                    'price': vp_result['price'].tolist(),
+                    'volume': vp_result['volume'].tolist(),
+                    'params': {'bins': bins}
                 }
         
         return {'indicators': results}

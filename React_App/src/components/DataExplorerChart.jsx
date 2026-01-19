@@ -227,6 +227,236 @@ const calculateVolumeSMA = (volumes, window) => {
   return calculateSMA(volumes, window)
 }
 
+const calculateVWAP = (highs, lows, closes, volumes) => {
+  const result = []
+  let cumulativeTPV = 0
+  let cumulativeVolume = 0
+  
+  for (let i = 0; i < closes.length; i++) {
+    const typicalPrice = (highs[i] + lows[i] + closes[i]) / 3
+    cumulativeTPV += typicalPrice * volumes[i]
+    cumulativeVolume += volumes[i]
+    
+    if (cumulativeVolume > 0) {
+      result.push(cumulativeTPV / cumulativeVolume)
+    } else {
+      result.push(null)
+    }
+  }
+  
+  return result
+}
+
+const calculateIchimoku = (highs, lows, closes, tenkan = 9, kijun = 26, senkou = 52) => {
+  const result = {
+    tenkan: [],
+    kijun: [],
+    senkouA: [],
+    senkouB: [],
+    chikou: []
+  }
+  
+  // Tenkan-sen
+  for (let i = 0; i < closes.length; i++) {
+    if (i < tenkan - 1) {
+      result.tenkan.push(null)
+    } else {
+      const sliceHigh = highs.slice(i - tenkan + 1, i + 1)
+      const sliceLow = lows.slice(i - tenkan + 1, i + 1)
+      result.tenkan.push((Math.max(...sliceHigh) + Math.min(...sliceLow)) / 2)
+    }
+  }
+  
+  // Kijun-sen
+  for (let i = 0; i < closes.length; i++) {
+    if (i < kijun - 1) {
+      result.kijun.push(null)
+    } else {
+      const sliceHigh = highs.slice(i - kijun + 1, i + 1)
+      const sliceLow = lows.slice(i - kijun + 1, i + 1)
+      result.kijun.push((Math.max(...sliceHigh) + Math.min(...sliceLow)) / 2)
+    }
+  }
+  
+  // Senkou Span A
+  for (let i = 0; i < closes.length; i++) {
+    if (i < kijun - 1 || result.tenkan[i] === null || result.kijun[i] === null) {
+      result.senkouA.push(null)
+    } else {
+      const val = (result.tenkan[i] + result.kijun[i]) / 2
+      // Shift forward 26 periods (fill with nulls at end)
+      const futureIdx = i + 26
+      if (futureIdx < closes.length) {
+        result.senkouA.push(null)
+      } else {
+        result.senkouA.push(val)
+      }
+    }
+  }
+  
+  // Adjust Senkou A by shifting
+  const senkouATemp = []
+  for (let i = 0; i < closes.length; i++) {
+    if (i < kijun - 1) {
+      senkouATemp.push(null)
+    } else if (result.tenkan[i] === null || result.kijun[i] === null) {
+      senkouATemp.push(null)
+    } else {
+      senkouATemp.push((result.tenkan[i] + result.kijun[i]) / 2)
+    }
+  }
+  // Shift forward 26 periods
+  for (let i = 0; i < closes.length; i++) {
+    if (i < 26) {
+      result.senkouA[i] = null
+    } else if (i - 26 < senkouATemp.length) {
+      result.senkouA[i] = senkouATemp[i - 26]
+    } else {
+      result.senkouA[i] = null
+    }
+  }
+  
+  // Senkou Span B
+  const senkouBTemp = []
+  for (let i = 0; i < closes.length; i++) {
+    if (i < senkou - 1) {
+      senkouBTemp.push(null)
+    } else {
+      const sliceHigh = highs.slice(i - senkou + 1, i + 1)
+      const sliceLow = lows.slice(i - senkou + 1, i + 1)
+      senkouBTemp.push((Math.max(...sliceHigh) + Math.min(...sliceLow)) / 2)
+    }
+  }
+  // Shift forward 26 periods
+  for (let i = 0; i < closes.length; i++) {
+    if (i < 26) {
+      result.senkouB[i] = null
+    } else if (i - 26 < senkouBTemp.length) {
+      result.senkouB[i] = senkouBTemp[i - 26]
+    } else {
+      result.senkouB[i] = null
+    }
+  }
+  
+  // Chikou Span (close shifted back 26 periods)
+  for (let i = 0; i < closes.length; i++) {
+    const backIdx = i - 26
+    if (backIdx >= 0 && backIdx < closes.length) {
+      result.chikou[i] = closes[backIdx]
+    } else {
+      result.chikou[i] = null
+    }
+  }
+  
+  return result
+}
+
+const calculateKeltnerChannels = (highs, lows, closes, window, multiplier) => {
+  const atr = calculateATR(highs, lows, closes, window)
+  const ema = calculateEMA(closes, window)
+  
+  const result = { upper: [], middle: [], lower: [] }
+  for (let i = 0; i < closes.length; i++) {
+    if (ema[i] === null || atr[i] === null) {
+      result.upper.push(null)
+      result.middle.push(null)
+      result.lower.push(null)
+    } else {
+      result.middle.push(ema[i])
+      result.upper.push(ema[i] + multiplier * atr[i])
+      result.lower.push(ema[i] - multiplier * atr[i])
+    }
+  }
+  return result
+}
+
+const calculateDonchianChannels = (highs, lows, window) => {
+  const result = { upper: [], middle: [], lower: [] }
+  
+  for (let i = 0; i < highs.length; i++) {
+    if (i < window - 1) {
+      result.upper.push(null)
+      result.middle.push(null)
+      result.lower.push(null)
+    } else {
+      const sliceHigh = highs.slice(i - window + 1, i + 1)
+      const sliceLow = lows.slice(i - window + 1, i + 1)
+      const upper = Math.max(...sliceHigh)
+      const lower = Math.min(...sliceLow)
+      result.upper.push(upper)
+      result.lower.push(lower)
+      result.middle.push((upper + lower) / 2)
+    }
+  }
+  
+  return result
+}
+
+const calculateWilliamsR = (highs, lows, closes, window) => {
+  const result = []
+  
+  for (let i = 0; i < closes.length; i++) {
+    if (i < window - 1) {
+      result.push(null)
+    } else {
+      const sliceHigh = highs.slice(i - window + 1, i + 1)
+      const sliceLow = lows.slice(i - window + 1, i + 1)
+      const highestHigh = Math.max(...sliceHigh)
+      const lowestLow = Math.min(...sliceLow)
+      
+      if (highestHigh === lowestLow) {
+        result.push(-50) // Neutral
+      } else {
+        const wr = -100 * ((highestHigh - closes[i]) / (highestHigh - lowestLow))
+        result.push(wr)
+      }
+    }
+  }
+  
+  return result
+}
+
+const calculateCCI = (highs, lows, closes, window) => {
+  const result = []
+  
+  for (let i = 0; i < closes.length; i++) {
+    if (i < window - 1) {
+      result.push(null)
+    } else {
+      const slice = []
+      for (let j = i - window + 1; j <= i; j++) {
+        slice.push((highs[j] + lows[j] + closes[j]) / 3) // Typical Price
+      }
+      const sma = slice.reduce((a, b) => a + b, 0) / window
+      const mad = slice.reduce((sum, tp) => sum + Math.abs(tp - sma), 0) / window
+      
+      const tp = (highs[i] + lows[i] + closes[i]) / 3
+      if (mad > 0) {
+        result.push((tp - sma) / (0.015 * mad))
+      } else {
+        result.push(0)
+      }
+    }
+  }
+  
+  return result
+}
+
+const calculateROC = (prices, window) => {
+  const result = []
+  
+  for (let i = 0; i < prices.length; i++) {
+    if (i < window) {
+      result.push(null)
+    } else {
+      const change = ((prices[i] - prices[i - window]) / prices[i - window]) * 100
+      result.push(change)
+    }
+  }
+  
+  return result
+}
+
 const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, indicators, showVolume }) {
   const plotData = useMemo(() => {
     if (!data || data.length === 0) return null
@@ -271,7 +501,8 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
         type: 'scatter',
         mode: 'lines',
         name: `SMA(${indicators.sma.window})`,
-        line: { width: 1.5, color: 'blue' },
+        line: { width: 2, color: '#2196f3' },
+        hovertemplate: '<b>SMA(%{x}</b><br>Value: %{y:.2f}<extra></extra>',
       })
     }
 
@@ -283,7 +514,8 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
         type: 'scatter',
         mode: 'lines',
         name: `EMA(${indicators.ema.window})`,
-        line: { width: 1.5, color: 'orange' },
+        line: { width: 2, color: '#ff9800' },
+        hovertemplate: '<b>EMA(%{x}</b><br>Value: %{y:.2f}<extra></extra>',
       })
     }
 
@@ -335,7 +567,8 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
           type: 'scatter',
           mode: 'lines',
           name: 'MACD',
-          line: { width: 1.5, color: 'blue' },
+          line: { width: 2, color: '#2196f3' },
+          hovertemplate: '<b>MACD</b><br>%{x}<br>Value: %{y:.4f}<extra></extra>',
         },
         {
           x: dates,
@@ -343,7 +576,169 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
           type: 'scatter',
           mode: 'lines',
           name: 'Signal',
-          line: { width: 1.5, color: 'red' },
+          line: { width: 2, color: '#ff9800' },
+          hovertemplate: '<b>Signal</b><br>%{x}<br>Value: %{y:.4f}<extra></extra>',
+        },
+        {
+          x: dates,
+          y: macdResult.histogram,
+          type: 'bar',
+          name: 'Histogram',
+          marker: {
+            color: macdResult.histogram.map(h => h >= 0 ? '#26a69a' : '#ef5350'),
+            line: { width: 0 },
+          },
+          opacity: 0.6,
+        }
+      )
+    }
+
+    if (indicators.vwap) {
+      const vwapValues = calculateVWAP(highs, lows, closes, volumes)
+      traces.push({
+        x: dates,
+        y: vwapValues,
+        type: 'scatter',
+        mode: 'lines',
+        name: 'VWAP',
+        line: { width: 2, color: '#7b1fa2', dash: 'dot' },
+      })
+    }
+
+    if (indicators.keltnerChannels) {
+      const keltner = calculateKeltnerChannels(
+        highs,
+        lows,
+        closes,
+        indicators.keltnerChannels.window || 20,
+        indicators.keltnerChannels.multiplier || 2.0
+      )
+      traces.push(
+        {
+          x: dates,
+          y: keltner.upper,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'KC Upper',
+          line: { width: 1, color: '#e57373', dash: 'dash' },
+          showlegend: false,
+        },
+        {
+          x: dates,
+          y: keltner.middle,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'KC Middle',
+          line: { width: 1, color: '#e57373', dash: 'dot' },
+        },
+        {
+          x: dates,
+          y: keltner.lower,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'KC Lower',
+          line: { width: 1, color: '#e57373', dash: 'dash' },
+          showlegend: false,
+          fill: 'tonexty',
+          fillcolor: 'rgba(229,115,115,0.1)',
+        }
+      )
+    }
+
+    if (indicators.donchianChannels) {
+      const donchian = calculateDonchianChannels(
+        highs,
+        lows,
+        indicators.donchianChannels.window || 20
+      )
+      traces.push(
+        {
+          x: dates,
+          y: donchian.upper,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'DC Upper',
+          line: { width: 1, color: '#42a5f5', dash: 'dash' },
+          showlegend: false,
+        },
+        {
+          x: dates,
+          y: donchian.middle,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'DC Middle',
+          line: { width: 1, color: '#42a5f5', dash: 'dot' },
+        },
+        {
+          x: dates,
+          y: donchian.lower,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'DC Lower',
+          line: { width: 1, color: '#42a5f5', dash: 'dash' },
+          showlegend: false,
+          fill: 'tonexty',
+          fillcolor: 'rgba(66,165,245,0.1)',
+        }
+      )
+    }
+
+    if (indicators.ichimoku) {
+      const ichimoku = calculateIchimoku(
+        highs,
+        lows,
+        closes,
+        indicators.ichimoku.tenkan || 9,
+        indicators.ichimoku.kijun || 26,
+        indicators.ichimoku.senkou || 52
+      )
+      // Add cloud fill area (Senkou A and B)
+      traces.push(
+        {
+          x: dates,
+          y: ichimoku.senkouA,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'Senkou A',
+          line: { width: 1, color: '#26a69a' },
+          showlegend: false,
+          fill: 'tonexty',
+          fillcolor: 'rgba(38,166,154,0.3)',
+        },
+        {
+          x: dates,
+          y: ichimoku.senkouB,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'Senkou B',
+          line: { width: 1, color: '#ef5350' },
+          showlegend: false,
+          fill: 'tonexty',
+          fillcolor: 'rgba(239,83,80,0.3)',
+        },
+        {
+          x: dates,
+          y: ichimoku.tenkan,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'Tenkan',
+          line: { width: 1.5, color: '#26a69a' },
+        },
+        {
+          x: dates,
+          y: ichimoku.kijun,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'Kijun',
+          line: { width: 1.5, color: '#ef5350' },
+        },
+        {
+          x: dates,
+          y: ichimoku.chikou,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'Chikou',
+          line: { width: 1, color: '#42a5f5', dash: 'dot' },
         }
       )
     }
@@ -492,6 +887,69 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
     yaxis: { title: 'OBV' },
   }), [])
 
+  const williamsRData = useMemo(() => {
+    if (!indicators.williamsR || !plotData) return null
+    const wrValues = calculateWilliamsR(plotData.highs, plotData.lows, plotData.closes, indicators.williamsR.window || 14)
+    return {
+      dates: plotData.dates,
+      values: wrValues,
+    }
+  }, [indicators.williamsR, plotData])
+
+  const cciData = useMemo(() => {
+    if (!indicators.cci || !plotData) return null
+    const cciValues = calculateCCI(plotData.highs, plotData.lows, plotData.closes, indicators.cci.window || 20)
+    return {
+      dates: plotData.dates,
+      values: cciValues,
+    }
+  }, [indicators.cci, plotData])
+
+  const rocData = useMemo(() => {
+    if (!indicators.roc || !plotData) return null
+    const rocValues = calculateROC(plotData.closes, indicators.roc.window || 12)
+    return {
+      dates: plotData.dates,
+      values: rocValues,
+    }
+  }, [indicators.roc, plotData])
+
+  const williamsRLayout = useMemo(() => ({
+    title: 'Williams %R',
+    height: 200,
+    hovermode: 'x unified',
+    xaxis: { title: 'Date' },
+    yaxis: { title: 'Williams %R', range: [-100, 0] },
+    shapes: [
+      { type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: -80, y1: -80, line: { dash: 'dash', color: 'red', opacity: 0.5 } },
+      { type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: -20, y1: -20, line: { dash: 'dash', color: 'green', opacity: 0.5 } },
+    ],
+  }), [])
+
+  const cciLayout = useMemo(() => ({
+    title: 'Commodity Channel Index (CCI)',
+    height: 200,
+    hovermode: 'x unified',
+    xaxis: { title: 'Date' },
+    yaxis: { title: 'CCI' },
+    shapes: [
+      { type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: 100, y1: 100, line: { dash: 'dash', color: 'red', opacity: 0.5 } },
+      { type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: -100, y1: -100, line: { dash: 'dash', color: 'green', opacity: 0.5 } },
+      { type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: 0, y1: 0, line: { dash: 'dot', color: 'gray', opacity: 0.3 } },
+    ],
+  }), [])
+
+  const rocLayout = useMemo(() => ({
+    title: 'Rate of Change (ROC)',
+    height: 200,
+    hovermode: 'x unified',
+    xaxis: { title: 'Date' },
+    yaxis: { title: 'ROC (%)' },
+    shapes: [
+      { type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: 0, y1: 0, line: { dash: 'dot', color: 'gray', opacity: 0.3 } },
+    ],
+  }), [])
+
   if (!plotData || !plotData.priceTraces || plotData.priceTraces.length === 0) {
     return <div>No data available for chart</div>
   }
@@ -595,6 +1053,70 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
               line: { width: 2, color: 'green' },
             }]}
             layout={obvLayout}
+            style={{ width: '100%', height: '200px' }}
+            config={{
+              responsive: true,
+              displayModeBar: true,
+              modeBarButtonsToAdd: ['pan2d', 'zoom2d', 'autoScale2d', 'resetScale2d'],
+            }}
+          />
+        </Box>
+      )}
+      {williamsRData && (
+        <Box sx={{ mt: 2 }}>
+          <Plot
+            data={[{
+              x: williamsRData.dates,
+              y: williamsRData.values,
+              type: 'scatter',
+              mode: 'lines',
+              name: `Williams %R(${indicators.williamsR.window})`,
+              line: { width: 2, color: '#ab47bc' },
+              hoverinfo: 'x+y',
+            }]}
+            layout={williamsRLayout}
+            style={{ width: '100%', height: '200px' }}
+            config={{
+              responsive: true,
+              displayModeBar: true,
+              modeBarButtonsToAdd: ['pan2d', 'zoom2d', 'autoScale2d', 'resetScale2d'],
+            }}
+          />
+        </Box>
+      )}
+      {cciData && (
+        <Box sx={{ mt: 2 }}>
+          <Plot
+            data={[{
+              x: cciData.dates,
+              y: cciData.values,
+              type: 'scatter',
+              mode: 'lines',
+              name: `CCI(${indicators.cci.window})`,
+              line: { width: 2, color: '#5c6bc0' },
+            }]}
+            layout={cciLayout}
+            style={{ width: '100%', height: '200px' }}
+            config={{
+              responsive: true,
+              displayModeBar: true,
+              modeBarButtonsToAdd: ['pan2d', 'zoom2d', 'autoScale2d', 'resetScale2d'],
+            }}
+          />
+        </Box>
+      )}
+      {rocData && (
+        <Box sx={{ mt: 2 }}>
+          <Plot
+            data={[{
+              x: rocData.dates,
+              y: rocData.values,
+              type: 'scatter',
+              mode: 'lines',
+              name: `ROC(${indicators.roc.window})`,
+              line: { width: 2, color: '#66bb6a' },
+            }]}
+            layout={rocLayout}
             style={{ width: '100%', height: '200px' }}
             config={{
               responsive: true,

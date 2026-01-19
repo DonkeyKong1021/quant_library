@@ -164,3 +164,204 @@ def jensen_alpha(
     actual_return = returns.mean() * 252
     
     return actual_return - expected_return
+
+
+def annualized_volatility(
+    returns: pd.Series,
+    periods: int = 252
+) -> float:
+    """
+    Calculate annualized volatility (standard deviation).
+    
+    Args:
+        returns: Returns series
+        periods: Number of periods per year (252 for daily)
+        
+    Returns:
+        Annualized volatility
+    """
+    if len(returns) == 0:
+        return 0.0
+    
+    return returns.std() * np.sqrt(periods)
+
+
+def omega_ratio(
+    returns: pd.Series,
+    threshold: float = 0.0,
+    periods: int = 252
+) -> float:
+    """
+    Calculate Omega ratio (probability-weighted ratio of gains vs losses).
+    
+    Omega ratio measures the probability-weighted ratio of gains vs losses
+    relative to a threshold (often the risk-free rate).
+    
+    Args:
+        returns: Returns series
+        threshold: Threshold return level (default 0.0)
+        periods: Number of periods per year (for annualizing threshold)
+        
+    Returns:
+        Omega ratio
+    """
+    if len(returns) == 0:
+        return 0.0
+    
+    threshold_daily = threshold / periods
+    excess_returns = returns - threshold_daily
+    
+    gains = excess_returns[excess_returns > 0].sum()
+    losses = abs(excess_returns[excess_returns < 0].sum())
+    
+    if losses == 0:
+        return np.inf if gains > 0 else 0.0
+    
+    return gains / losses
+
+
+def tail_ratio(
+    returns: pd.Series,
+    upper_percentile: float = 95.0,
+    lower_percentile: float = 5.0
+) -> float:
+    """
+    Calculate tail ratio (ratio of upper percentile to lower percentile returns).
+    
+    Measures the asymmetry of tail returns. A ratio > 1 indicates more positive
+    tail events, < 1 indicates more negative tail events.
+    
+    Args:
+        returns: Returns series
+        upper_percentile: Upper percentile (default 95th)
+        lower_percentile: Lower percentile (default 5th)
+        
+    Returns:
+        Tail ratio
+    """
+    if len(returns) == 0:
+        return 0.0
+    
+    upper = np.percentile(returns, upper_percentile)
+    lower = np.percentile(returns, lower_percentile)
+    
+    if abs(lower) < 1e-10:
+        return 0.0 if upper == 0 else np.inf if upper > 0 else -np.inf
+    
+    return abs(upper / lower)
+
+
+def skewness(returns: pd.Series) -> float:
+    """
+    Calculate skewness of returns distribution.
+    
+    Positive skewness indicates right tail (more positive outliers),
+    negative indicates left tail (more negative outliers).
+    
+    Args:
+        returns: Returns series
+        
+    Returns:
+        Skewness
+    """
+    if len(returns) < 3:
+        return 0.0
+    
+    return stats.skew(returns)
+
+
+def kurtosis(returns: pd.Series) -> float:
+    """
+    Calculate excess kurtosis of returns distribution.
+    
+    Excess kurtosis = kurtosis - 3 (normal distribution has kurtosis = 3).
+    Positive values indicate fat tails, negative indicate thin tails.
+    
+    Args:
+        returns: Returns series
+        
+    Returns:
+        Excess kurtosis
+    """
+    if len(returns) < 4:
+        return 0.0
+    
+    return stats.kurtosis(returns, fisher=True)  # fisher=True returns excess kurtosis
+
+
+def win_rate(trades: pd.DataFrame, pnl_column: str = 'pnl') -> float:
+    """
+    Calculate win rate (percentage of profitable trades).
+    
+    Args:
+        trades: DataFrame with trade data
+        pnl_column: Column name for PnL (profit/loss)
+        
+    Returns:
+        Win rate as percentage (0-100)
+    """
+    if trades.empty or pnl_column not in trades.columns:
+        return 0.0
+    
+    profitable = (trades[pnl_column] > 0).sum()
+    total = len(trades)
+    
+    if total == 0:
+        return 0.0
+    
+    return (profitable / total) * 100
+
+
+def profit_factor(trades: pd.DataFrame, pnl_column: str = 'pnl') -> float:
+    """
+    Calculate profit factor (gross profit / gross loss).
+    
+    A profit factor > 1 indicates profitable strategy,
+    < 1 indicates losing strategy.
+    
+    Args:
+        trades: DataFrame with trade data
+        pnl_column: Column name for PnL (profit/loss)
+        
+    Returns:
+        Profit factor
+    """
+    if trades.empty or pnl_column not in trades.columns:
+        return 0.0
+    
+    gross_profit = trades[trades[pnl_column] > 0][pnl_column].sum()
+    gross_loss = abs(trades[trades[pnl_column] < 0][pnl_column].sum())
+    
+    if gross_loss == 0:
+        return np.inf if gross_profit > 0 else 0.0
+    
+    return gross_profit / gross_loss
+
+
+def average_win_loss(trades: pd.DataFrame, pnl_column: str = 'pnl') -> dict:
+    """
+    Calculate average winning trade and average losing trade.
+    
+    Args:
+        trades: DataFrame with trade data
+        pnl_column: Column name for PnL (profit/loss)
+        
+    Returns:
+        Dictionary with 'avg_win', 'avg_loss', 'win_loss_ratio'
+    """
+    if trades.empty or pnl_column not in trades.columns:
+        return {'avg_win': 0.0, 'avg_loss': 0.0, 'win_loss_ratio': 0.0}
+    
+    winning_trades = trades[trades[pnl_column] > 0][pnl_column]
+    losing_trades = trades[trades[pnl_column] < 0][pnl_column]
+    
+    avg_win = winning_trades.mean() if len(winning_trades) > 0 else 0.0
+    avg_loss = abs(losing_trades.mean()) if len(losing_trades) > 0 else 0.0
+    
+    win_loss_ratio = avg_win / avg_loss if avg_loss > 0 else (np.inf if avg_win > 0 else 0.0)
+    
+    return {
+        'avg_win': float(avg_win),
+        'avg_loss': float(avg_loss),
+        'win_loss_ratio': float(win_loss_ratio)
+    }

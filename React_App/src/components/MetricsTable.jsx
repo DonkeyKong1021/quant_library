@@ -51,12 +51,100 @@ const MetricsTable = memo(function MetricsTable({ results }) {
       value: metrics.calmar_ratio?.toFixed(2) || '—',
     },
     {
+      label: 'Annualized Volatility',
+      value: metrics.annualized_volatility 
+        ? `${(metrics.annualized_volatility * 100).toFixed(2)}%`
+        : '—',
+    },
+    {
+      label: 'Omega Ratio',
+      value: metrics.omega_ratio?.toFixed(2) || '—',
+    },
+    {
       label: 'Initial Capital',
       value: `$${metrics.initial_capital?.toLocaleString() || '—'}`,
     },
     {
       label: 'Final Equity',
       value: `$${metrics.final_equity?.toLocaleString() || '—'}`,
+    },
+  ]
+
+  // Risk metrics (from drawdown category)
+  const riskMetrics = [
+    {
+      label: 'Ulcer Index',
+      value: metrics.drawdown_ulcer_index?.toFixed(4) || '—',
+    },
+    {
+      label: 'Avg Drawdown Duration',
+      value: metrics.drawdown_average_drawdown_duration
+        ? `${metrics.drawdown_average_drawdown_duration.toFixed(1)} periods`
+        : '—',
+    },
+    {
+      label: 'Tail Ratio',
+      value: metrics.tail_ratio?.toFixed(4) || '—',
+    },
+  ]
+
+  // Value at Risk metrics
+  const varMetrics = [
+    {
+      label: 'Historical VaR (95%)',
+      value: metrics.var_historical_var
+        ? `${(metrics.var_historical_var * 100).toFixed(4)}%`
+        : '—',
+    },
+    {
+      label: 'Parametric VaR (95%)',
+      value: metrics.var_parametric_var
+        ? `${(metrics.var_parametric_var * 100).toFixed(4)}%`
+        : '—',
+    },
+    {
+      label: 'CVaR (Expected Shortfall)',
+      value: metrics.var_cvar
+        ? `${(metrics.var_cvar * 100).toFixed(4)}%`
+        : '—',
+    },
+  ]
+
+  // Distribution metrics
+  const distributionMetrics = [
+    {
+      label: 'Skewness',
+      value: metrics.distribution_skewness?.toFixed(4) || '—',
+    },
+    {
+      label: 'Kurtosis',
+      value: metrics.distribution_kurtosis?.toFixed(4) || '—',
+    },
+  ]
+
+  // Trade statistics
+  const tradeMetrics = [
+    {
+      label: 'Win Rate',
+      value: metrics.trades_win_rate
+        ? `${metrics.trades_win_rate.toFixed(2)}%`
+        : '—',
+    },
+    {
+      label: 'Profit Factor',
+      value: metrics.trades_profit_factor?.toFixed(4) || '—',
+    },
+    {
+      label: 'Avg Win',
+      value: metrics.trades_avg_win
+        ? `$${metrics.trades_avg_win.toFixed(2)}`
+        : '—',
+    },
+    {
+      label: 'Avg Loss',
+      value: metrics.trades_avg_loss
+        ? `$${metrics.trades_avg_loss.toFixed(2)}`
+        : '—',
     },
   ]
   
@@ -125,8 +213,103 @@ const MetricsTable = memo(function MetricsTable({ results }) {
       {additionalMetrics.some((m) => m.value !== '—') && (
         <>
           <Divider sx={{ my: 3 }} />
+          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+            Additional Performance Metrics
+          </Typography>
           <Grid container spacing={2}>
             {additionalMetrics.map((metric, index) => (
+              <Grid item xs={6} sm={3} key={index}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    {metric.label}
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                    {metric.value}
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </>
+      )}
+
+      {riskMetrics.some((m) => m.value !== '—') && (
+        <>
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+            Risk Metrics
+          </Typography>
+          <Grid container spacing={2}>
+            {riskMetrics.map((metric, index) => (
+              <Grid item xs={6} sm={3} key={index}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    {metric.label}
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                    {metric.value}
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </>
+      )}
+
+      {varMetrics.some((m) => m.value !== '—') && (
+        <>
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+            Value at Risk (VaR) Metrics
+          </Typography>
+          <Grid container spacing={2}>
+            {varMetrics.map((metric, index) => (
+              <Grid item xs={6} sm={4} key={index}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    {metric.label}
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                    {metric.value}
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </>
+      )}
+
+      {distributionMetrics.some((m) => m.value !== '—') && (
+        <>
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+            Distribution Statistics
+          </Typography>
+          <Grid container spacing={2}>
+            {distributionMetrics.map((metric, index) => (
+              <Grid item xs={6} sm={3} key={index}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    {metric.label}
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                    {metric.value}
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </>
+      )}
+
+      {tradeMetrics.some((m) => m.value !== '—') && (
+        <>
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+            Trade Statistics
+          </Typography>
+          <Grid container spacing={2}>
+            {tradeMetrics.map((metric, index) => (
               <Grid item xs={6} sm={3} key={index}>
                 <Box>
                   <Typography variant="body2" color="text.secondary" gutterBottom>

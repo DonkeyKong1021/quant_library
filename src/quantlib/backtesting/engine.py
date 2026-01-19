@@ -8,6 +8,7 @@ from queue import PriorityQueue
 
 from quantlib.backtesting.event import Event, MarketEvent, SignalEvent, OrderEvent, FillEvent
 from quantlib.backtesting.broker import SimulatedBroker
+from quantlib.portfolio import Portfolio
 
 
 class BacktestEngine:
@@ -31,11 +32,11 @@ class BacktestEngine:
         """
         self.initial_capital = initial_capital
         self.broker = SimulatedBroker(
-            initial_capital=initial_capital,
             commission=commission,
             slippage=slippage,
             commission_type=commission_type
         )
+        self.portfolio = Portfolio(initial_cash=initial_capital)
         self.events = PriorityQueue()
         self.data = None
         self.strategy = None
@@ -90,11 +91,12 @@ class BacktestEngine:
         self._symbol = symbol
         
         # Reset state
-        self.broker.reset()
+        self.portfolio = Portfolio(initial_cash=self.initial_capital)
         self.equity_curve = []
         self.trades = []
         self.positions_history = []
         self._event_counter = 0  # Reset event counter for tiebreaking
+        self._all_symbols = set()  # Track all symbols encountered
         
         # Initialize strategy
         if hasattr(strategy, 'initialize'):
@@ -118,22 +120,38 @@ class BacktestEngine:
                 strategy.on_data(context, bar.to_dict())
             
             # Update equity curve
-            # Extract symbol from broker positions if not provided, or use default
-            if self._symbol is None:
-                # Try to get symbol from broker positions
-                positions = self.broker.get_all_positions()
-                if positions:
-                    self._symbol = list(positions.keys())[0]
-                else:
-                    self._symbol = 'SYMBOL'  # Default fallback
+            # Build current prices dict (for now, assume single symbol or use bar Close for all)
+            current_prices = {}
+            close_price = bar['Close']
             
-            equity = self.broker.get_total_equity({self._symbol: bar['Close']})
+            # For single symbol backtests, use the symbol
+            if self._symbol:
+                current_prices[self._symbol] = close_price
+            else:
+                # Try to infer from portfolio positions
+                positions = self.portfolio.get_positions()
+                if positions:
+                    # Use first position's symbol
+                    first_symbol = list(positions.keys())[0]
+                    current_prices[first_symbol] = close_price
+                else:
+                    # Fallback: if no positions, still track equity with placeholder
+                    # (This shouldn't happen in normal operation)
+                    if self._all_symbols:
+                        current_prices[list(self._all_symbols)[0]] = close_price
+                    else:
+                        current_prices['SYMBOL'] = close_price
+            
+            equity = self.portfolio.get_total_equity(current_prices)
+            
+            # Update portfolio history
+            self.portfolio.update_equity(timestamp, current_prices)
             
             self.equity_curve.append({
                 'timestamp': timestamp,
                 'equity': equity,
-                'cash': self.broker.get_cash(),
-                'positions': self.broker.get_all_positions()
+                'cash': self.portfolio.get_cash(),
+                'positions': self.portfolio.get_positions()
             })
         
         # Calculate results
@@ -144,7 +162,7 @@ class BacktestEngine:
         class Context:
             def __init__(self, engine):
                 self.engine = engine
-                self.portfolio = engine.broker
+                self.portfolio = engine.portfolio  # Use Portfolio instead of broker
                 self.current_time = engine.current_time
             
             def place_order(self, symbol: str, quantity: int, direction: str):
@@ -198,12 +216,63 @@ class BacktestEngine:
                     bar = self.data.loc[self.current_time]
                     current_price = bar['Close']
                     
-                    fill = self.broker.execute_order(event, current_price, self.current_time)
-                    if fill:
-                        self._add_event(fill)
+                    # Calculate execution price and commission (broker is execution-only)
+                    execution_price, commission = self.broker.calculate_execution(
+                        event, current_price, self.current_time
+                    )
+                    
+                    # Check if we have enough cash/positions (validation)
+                    symbol_upper = event.symbol.upper()
+                    quantity = event.quantity
+                    
+                    if event.direction == 'BUY':
+                        total_cost = quantity * execution_price + commission
+                        if self.portfolio.get_cash() < total_cost:
+                            # Insufficient funds - skip this order
+                            continue
+                    else:  # SELL
+                        current_position = self.portfolio.get_position(symbol_upper)
+                        if current_position < quantity:
+                            # Insufficient position - skip this order
+                            continue
+                    
+                    # Create fill event
+                    fill = FillEvent(
+                        timestamp=self.current_time,
+                        symbol=event.symbol,
+                        quantity=quantity,
+                        direction=event.direction,
+                        price=execution_price,
+                        commission=commission
+                    )
+                    self._add_event(fill)
             
             elif isinstance(event, FillEvent):
-                # Record trade
+                # Record trade in Portfolio and trades list
+                symbol_upper = event.symbol.upper()
+                self._all_symbols.add(symbol_upper)
+                
+                # Update portfolio
+                if event.direction == 'BUY':
+                    cost = event.quantity * event.price + event.commission
+                    self.portfolio.update_cash(-cost)
+                    self.portfolio.add_position(symbol_upper, event.quantity)
+                else:  # SELL
+                    proceeds = event.quantity * event.price - event.commission
+                    self.portfolio.update_cash(proceeds)
+                    self.portfolio.add_position(symbol_upper, -event.quantity)
+                
+                # Record transaction in portfolio
+                self.portfolio.record_transaction(
+                    symbol_upper,
+                    event.quantity,
+                    event.price,
+                    event.direction,
+                    event.timestamp,
+                    event.commission
+                )
+                
+                # Record trade for results
                 self.trades.append({
                     'timestamp': event.timestamp,
                     'symbol': event.symbol,
@@ -229,6 +298,9 @@ class BacktestEngine:
         total_return = (equity_series.iloc[-1] / equity_series.iloc[0]) - 1
         cumulative_returns = (1 + returns).cumprod() - 1
         
+        # Calculate total commission from transactions
+        total_commission = sum(t['commission'] for t in self.trades)
+        
         results = {
             'equity_curve': equity_series,
             'returns': returns,
@@ -238,8 +310,9 @@ class BacktestEngine:
             'positions_history': equity_df[['cash', 'positions']],
             'initial_capital': self.initial_capital,
             'final_equity': equity_series.iloc[-1],
-            'total_commission': self.broker.total_commission_paid,
-            'num_trades': len(self.trades)
+            'total_commission': total_commission,
+            'num_trades': len(self.trades),
+            'portfolio': self.portfolio  # Include portfolio for advanced analytics
         }
         
         return results
@@ -256,4 +329,4 @@ class BacktestEngine:
     
     def get_positions(self) -> Dict:
         """Get final positions"""
-        return self.broker.get_all_positions()
+        return self.portfolio.get_positions()

@@ -5,8 +5,13 @@ import pandas as pd
 from quantlib.risk import (
     sharpe_ratio, sortino_ratio, calmar_ratio,
     max_drawdown, max_drawdown_pct,
-    alpha, beta, information_ratio
+    alpha, beta, information_ratio,
+    annualized_volatility, omega_ratio, tail_ratio,
+    skewness, kurtosis, ulcer_index,
+    average_drawdown_duration,
+    historical_var, parametric_var, cvar,
 )
+from quantlib.risk.calculator import RiskCalculator
 
 
 def metrics_table_component(results: dict):
@@ -37,15 +42,54 @@ def metrics_table_component(results: dict):
         st.warning("No equity curve data available.")
         return
     
-    # Calculate metrics
-    sharpe = sharpe_ratio(returns)
-    sortino = sortino_ratio(returns)
-    max_dd = max_drawdown(equity_curve)
-    max_dd_pct = max_drawdown_pct(equity_curve)
-    total_return = results.get('total_return', 0) * 100
+    # Calculate metrics - try using RiskCalculator if available
+    try:
+        trades_df = results.get('trades', pd.DataFrame())
+        calculator = RiskCalculator(
+            returns=returns,
+            equity_curve=equity_curve,
+            trades=trades_df if not trades_df.empty else None,
+        )
+        all_metrics = calculator.get_flat_metrics()
+        
+        # Extract key metrics
+        sharpe = all_metrics.get('sharpe_ratio', sharpe_ratio(returns))
+        sortino = all_metrics.get('sortino_ratio', sortino_ratio(returns))
+        calmar = all_metrics.get('calmar_ratio', 0.0)
+        max_dd_pct = all_metrics.get('drawdown_max_drawdown_pct', max_drawdown_pct(equity_curve))
+        volatility = all_metrics.get('annualized_volatility', annualized_volatility(returns))
+        omega = all_metrics.get('omega_ratio', 0.0)
+        tail_rat = all_metrics.get('tail_ratio', 0.0)
+        ulcer_idx = all_metrics.get('drawdown_ulcer_index', 0.0)
+        avg_dd_duration = all_metrics.get('drawdown_average_drawdown_duration', 0.0)
+        var_historical = all_metrics.get('var_historical_var', 0.0)
+        var_parametric = all_metrics.get('var_parametric_var', 0.0)
+        var_cvar = all_metrics.get('var_cvar', 0.0)
+        skew = all_metrics.get('distribution_skewness', 0.0)
+        kurt = all_metrics.get('distribution_kurtosis', 0.0)
+        win_rt = all_metrics.get('trades_win_rate', 0.0)
+        profit_fact = all_metrics.get('trades_profit_factor', 0.0)
+    except Exception:
+        # Fall back to individual calculations
+        sharpe = sharpe_ratio(returns)
+        sortino = sortino_ratio(returns)
+        max_dd = max_drawdown(equity_curve)
+        max_dd_pct = max_drawdown_pct(equity_curve)
+        calmar = calmar_ratio(returns, abs(max_dd_pct / 100)) if max_dd_pct != 0 else 0
+        volatility = annualized_volatility(returns)
+        omega = 0.0
+        tail_rat = 0.0
+        ulcer_idx = 0.0
+        avg_dd_duration = 0.0
+        var_historical = 0.0
+        var_parametric = 0.0
+        var_cvar = 0.0
+        skew = 0.0
+        kurt = 0.0
+        win_rt = 0.0
+        profit_fact = 0.0
     
-    # Calculate Calmar ratio
-    calmar = calmar_ratio(returns, abs(max_dd_pct / 100)) if max_dd_pct != 0 else 0
+    total_return = results.get('total_return', 0) * 100
     
     # Benchmark metrics (if available)
     benchmark_returns = results.get('benchmark_returns')
@@ -100,8 +144,8 @@ def metrics_table_component(results: dict):
             f"{sortino:.2f}"
         )
         st.metric(
-            "Calmar Ratio",
-            f"{calmar:.2f}"
+            "Volatility (Annual)",
+            f"{volatility*100:.2f}%"
         )
     
     with col3:
@@ -110,9 +154,30 @@ def metrics_table_component(results: dict):
             f"{max_dd_pct:.2f}%"
         )
         st.metric(
-            "Total Trades",
-            f"{num_trades}"
+            "Calmar Ratio",
+            f"{calmar:.2f}"
         )
+    
+    with col4:
+        st.metric(
+            "Initial Capital",
+            f"${results.get('initial_capital', 0):,.2f}"
+        )
+        st.metric(
+            "Final Equity",
+            f"${results.get('final_equity', 0):,.2f}"
+        )
+    
+    if alpha_val is not None:
+        with col5:
+            st.metric(
+                "Alpha",
+                f"{alpha_val:.2f}%"
+            )
+            st.metric(
+                "Beta",
+                f"{beta_val:.2f}"
+            )
     
     with col4:
         st.metric(
@@ -156,17 +221,51 @@ def metrics_table_component(results: dict):
     
     # Additional metrics
     with st.expander("📈 Detailed Metrics"):
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
+            st.write("**Performance Ratios**")
+            st.write(f"- Sharpe Ratio: {sharpe:.4f}")
+            st.write(f"- Sortino Ratio: {sortino:.4f}")
+            st.write(f"- Calmar Ratio: {calmar:.4f}")
+            if omega > 0:
+                st.write(f"- Omega Ratio: {omega:.4f}")
+            if tail_rat > 0:
+                st.write(f"- Tail Ratio: {tail_rat:.4f}")
+            
             st.write("**Returns Statistics**")
             st.write(f"- Average Daily Return: {returns.mean()*100:.4f}%")
-            st.write(f"- Volatility (Std Dev): {returns.std()*100:.4f}%")
+            st.write(f"- Annualized Volatility: {volatility*100:.2f}%")
             st.write(f"- Best Day: {returns.max()*100:.2f}%")
             st.write(f"- Worst Day: {returns.min()*100:.2f}%")
         
         with col2:
+            st.write("**Drawdown Metrics**")
+            st.write(f"- Max Drawdown: {max_dd_pct:.2f}%")
+            if avg_dd_duration > 0:
+                st.write(f"- Avg Drawdown Duration: {avg_dd_duration:.1f} periods")
+            if ulcer_idx > 0:
+                st.write(f"- Ulcer Index: {ulcer_idx:.4f}")
+            
+            st.write("**Distribution Statistics**")
+            st.write(f"- Skewness: {skew:.4f}")
+            st.write(f"- Kurtosis: {kurt:.4f}")
+        
+        with col3:
+            st.write("**Value at Risk (95% Confidence)**")
+            if var_historical != 0:
+                st.write(f"- Historical VaR: {var_historical*100:.4f}%")
+            if var_parametric != 0:
+                st.write(f"- Parametric VaR: {var_parametric*100:.4f}%")
+            if var_cvar != 0:
+                st.write(f"- CVaR (Expected Shortfall): {var_cvar*100:.4f}%")
+            
             st.write("**Trade Statistics**")
+            st.write(f"- Total Trades: {num_trades}")
+            if win_rt > 0:
+                st.write(f"- Win Rate: {win_rt:.2f}%")
+            if profit_fact > 0:
+                st.write(f"- Profit Factor: {profit_fact:.4f}")
             st.write(f"- Total Commission: ${total_commission:,.2f}")
             if not trades_df.empty and 'direction' in trades_df.columns:
                 buy_trades = len(trades_df[trades_df['direction'] == 'BUY'])

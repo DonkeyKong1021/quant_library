@@ -80,15 +80,28 @@ try:
     
     assert positions['AAPL'] == 100
     assert cash == 90000
+    
+    # Test transaction recording
+    from datetime import datetime
+    portfolio.record_transaction('AAPL', 50, 150.0, 'BUY', datetime.now(), commission=1.0)
+    cost_basis = portfolio.get_cost_basis('AAPL')
+    assert cost_basis > 0
+    
+    # Test P&L calculation
+    unrealized_pnl = portfolio.get_unrealized_pnl({'AAPL': 160.0})
+    assert 'AAPL' in unrealized_pnl
+    
     print("   ✓ Portfolio management working")
 except Exception as e:
     print(f"   ✗ Portfolio error: {e}")
+    import traceback
+    traceback.print_exc()
     sys.exit(1)
 
-# Test 5: Broker
+# Test 5: Broker (execution-only)
 print("\n5. Testing simulated broker...")
 try:
-    broker = SimulatedBroker(initial_capital=100000, commission=1.0)
+    broker = SimulatedBroker(commission=1.0)
     from quantlib.backtesting.event import OrderEvent
     from datetime import datetime
     
@@ -100,11 +113,11 @@ try:
         direction='BUY'
     )
     
-    fill = broker.execute_order(order, current_price=150.0, current_time=datetime.now())
+    # Broker is execution-only - just calculates execution price and commission
+    execution_price, commission = broker.calculate_execution(order, current_price=150.0, current_time=datetime.now())
     
-    assert fill is not None
-    assert broker.get_position('AAPL') == 100
-    assert broker.get_cash() < 100000  # Cash reduced by purchase
+    assert execution_price > 0
+    assert commission >= 0
     print("   ✓ Simulated broker working")
 except Exception as e:
     print(f"   ✗ Broker error: {e}")

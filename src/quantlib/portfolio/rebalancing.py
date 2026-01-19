@@ -112,3 +112,108 @@ class Rebalancer:
     def mark_rebalanced(self, timestamp: datetime):
         """Mark that rebalancing occurred"""
         self.last_rebalance = timestamp
+    
+    def rebalance_portfolio(
+        self,
+        portfolio,
+        current_prices: Dict[str, float],
+        current_time: datetime,
+        constraints: Optional = None,
+        commission: float = 0.0
+    ) -> bool:
+        """
+        Rebalance portfolio if needed.
+        
+        Args:
+            portfolio: Portfolio object
+            current_prices: Dictionary of symbol -> current price
+            current_time: Current timestamp
+            constraints: Optional PortfolioConstraints object
+            commission: Commission per trade
+            
+        Returns:
+            True if rebalancing occurred, False otherwise
+        """
+        # Get current weights
+        current_weights = portfolio.get_weights(current_prices)
+        portfolio_value = portfolio.get_total_equity(current_prices)
+        
+        # Check if we should rebalance
+        if not self.should_rebalance(current_time, current_weights):
+            return False
+        
+        # Calculate rebalance orders
+        orders = self.calculate_rebalance_orders(current_weights, portfolio_value)
+        
+        # Apply constraints if provided
+        if constraints:
+            # Filter orders to respect constraints
+            filtered_orders = {}
+            for symbol, dollar_amount in orders.items():
+                if dollar_amount == 0:
+                    continue
+                
+                # Determine direction and quantity
+                direction = 'BUY' if dollar_amount > 0 else 'SELL'
+                quantity = abs(dollar_amount) / current_prices.get(symbol.upper(), 1.0)
+                
+                # Validate trade
+                is_valid, error = constraints.validate_trade(
+                    symbol,
+                    int(quantity),
+                    current_prices.get(symbol.upper(), 0.0),
+                    direction,
+                    portfolio.positions,
+                    current_prices,
+                    portfolio.cash
+                )
+                
+                if is_valid:
+                    filtered_orders[symbol] = dollar_amount
+            orders = filtered_orders
+        
+        # Apply rebalancing
+        if orders:
+            portfolio.apply_rebalance(orders, current_prices, current_time, commission)
+            self.mark_rebalanced(current_time)
+            return True
+        
+        return False
+    
+    def calculate_rebalance_orders_with_costs(
+        self,
+        current_weights: Dict[str, float],
+        portfolio_value: float,
+        current_prices: Dict[str, float],
+        transaction_cost_pct: float = 0.0
+    ) -> Dict[str, float]:
+        """
+        Calculate rebalance orders with transaction cost awareness.
+        Adjusts target to account for estimated transaction costs.
+        
+        Args:
+            current_weights: Current portfolio weights
+            portfolio_value: Total portfolio value
+            current_prices: Current prices dictionary
+            transaction_cost_pct: Estimated transaction cost as percentage
+            
+        Returns:
+            Dictionary of symbol -> dollar amount to adjust
+        """
+        orders = self.calculate_rebalance_orders(current_weights, portfolio_value)
+        
+        if transaction_cost_pct > 0:
+            # Adjust orders to account for transaction costs
+            # For small adjustments, skip to avoid costs exceeding benefit
+            adjusted_orders = {}
+            for symbol, dollar_amount in orders.items():
+                abs_amount = abs(dollar_amount)
+                estimated_cost = abs_amount * transaction_cost_pct
+                
+                # Only rebalance if adjustment is significant relative to cost
+                if abs_amount > estimated_cost * 2:  # At least 2x cost
+                    adjusted_orders[symbol] = dollar_amount
+            
+            orders = adjusted_orders
+        
+        return orders

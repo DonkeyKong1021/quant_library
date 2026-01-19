@@ -14,12 +14,21 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import DownloadIcon from '@mui/icons-material/Download'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import SpeedIcon from '@mui/icons-material/Speed'
+import ShowChartIcon from '@mui/icons-material/ShowChart'
+import BarChartIcon from '@mui/icons-material/BarChart'
 import DataFetcher from '../components/DataFetcher'
 import DataExplorerChart from '../components/DataExplorerChart'
 import DataStatistics from '../components/DataStatistics'
+import IndicatorStatistics from '../components/IndicatorStatistics'
 
 export default function DataExplorer() {
   const [data, setData] = useState(null)
@@ -27,16 +36,28 @@ export default function DataExplorer() {
   const [chartType, setChartType] = useState('candlestick')
   const [showVolume, setShowVolume] = useState(true)
   const [indicators, setIndicators] = useState({
+    // Trend indicators
     sma: null,
     ema: null,
-    rsi: null,
-    bollingerBands: null,
     macd: null,
-    stochastic: null,
     adx: null,
+    ichimoku: null,
+    vwap: null,
+    // Momentum indicators
+    rsi: null,
+    stochastic: null,
+    williamsR: null,
+    cci: null,
+    roc: null,
+    // Volatility indicators
+    bollingerBands: null,
+    keltnerChannels: null,
+    donchianChannels: null,
     atr: null,
+    // Volume indicators
     obv: null,
     volumeSma: null,
+    volumeProfile: null,
   })
   const [tabValue, setTabValue] = useState(0)
   
@@ -138,9 +159,82 @@ export default function DataExplorer() {
                   sx={{ mb: 2 }}
                 />
 
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+                    Technical Indicators
+                  </Typography>
+                  <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                    <InputLabel>Preset Combinations</InputLabel>
+                    <Select
+                      value=""
+                      label="Preset Combinations"
+                      onChange={(e) => {
+                        const preset = e.target.value
+                        if (preset === '') return
+                        
+                        // Reset all indicators
+                        setIndicators({
+                          sma: null, ema: null, macd: null, adx: null, ichimoku: null, vwap: null,
+                          rsi: null, stochastic: null, williamsR: null, cci: null, roc: null,
+                          bollingerBands: null, keltnerChannels: null, donchianChannels: null, atr: null,
+                          obv: null, volumeSma: null, volumeProfile: null,
+                        })
+                        
+                        if (preset === 'trend_following') {
+                          setIndicators({
+                            sma: { window: 50 }, ema: { window: 20 }, macd: { fast: 12, slow: 26, signal: 9 },
+                            adx: { window: 14 },
+                          })
+                        } else if (preset === 'mean_reversion') {
+                          setIndicators({
+                            bollingerBands: { window: 20, numStd: 2.0 }, rsi: { window: 14 },
+                            stochastic: { k_window: 14, d_window: 3 },
+                          })
+                        } else if (preset === 'momentum') {
+                          setIndicators({
+                            rsi: { window: 14 }, macd: { fast: 12, slow: 26, signal: 9 },
+                            roc: { window: 12 }, williamsR: { window: 14 },
+                          })
+                        } else if (preset === 'volatility') {
+                          setIndicators({
+                            bollingerBands: { window: 20, numStd: 2.0 },
+                            keltnerChannels: { window: 20, multiplier: 2.0 },
+                            atr: { window: 14 },
+                          })
+                        } else if (preset === 'volume_analysis') {
+                          setIndicators({
+                            vwap: {}, obv: {}, volumeSma: { window: 20 },
+                          })
+                        } else if (preset === 'complete') {
+                          setIndicators({
+                            sma: { window: 50 }, ema: { window: 20 }, macd: { fast: 12, slow: 26, signal: 9 },
+                            adx: { window: 14 }, rsi: { window: 14 }, stochastic: { k_window: 14, d_window: 3 },
+                            bollingerBands: { window: 20, numStd: 2.0 }, atr: { window: 14 },
+                            obv: {}, volumeSma: { window: 20 },
+                          })
+                        }
+                      }}
+                    >
+                      <MenuItem value="">
+                        <em>None</em>
+                      </MenuItem>
+                      <MenuItem value="trend_following">Trend Following</MenuItem>
+                      <MenuItem value="mean_reversion">Mean Reversion</MenuItem>
+                      <MenuItem value="momentum">Momentum</MenuItem>
+                      <MenuItem value="volatility">Volatility</MenuItem>
+                      <MenuItem value="volume_analysis">Volume Analysis</MenuItem>
+                      <MenuItem value="complete">Complete Analysis</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+
+                {/* Trend Indicators */}
                 <Accordion>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Typography variant="subtitle2">Technical Indicators</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TrendingUpIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                      <Typography variant="subtitle2">Trend Indicators</Typography>
+                    </Box>
                   </AccordionSummary>
                   <AccordionDetails>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -236,8 +330,6 @@ export default function DataExplorer() {
                           />
                         )}
                       </Box>
-
-                      {/* Bollinger Bands */}
                       <Box>
                         <FormControlLabel
                           control={
@@ -402,7 +494,113 @@ export default function DataExplorer() {
                         )}
                       </Box>
 
-                      {/* ADX */}
+                      {/* Williams %R */}
+                      <Box>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={!!indicators.williamsR}
+                              onChange={(e) =>
+                                handleIndicatorChange('williamsR', e.target.checked, { window: 14 })
+                              }
+                            />
+                          }
+                          label="Williams %R"
+                        />
+                        {indicators.williamsR && (
+                          <TextField
+                            type="number"
+                            label="Window"
+                            value={indicators.williamsR.window || 14}
+                            onChange={(e) =>
+                              handleIndicatorChange('williamsR', true, {
+                                window: parseInt(e.target.value) || 14,
+                              })
+                            }
+                            size="small"
+                            fullWidth
+                            sx={{ mt: 1 }}
+                            inputProps={{ min: 5, max: 50 }}
+                          />
+                        )}
+                      </Box>
+
+                      {/* CCI */}
+                      <Box>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={!!indicators.cci}
+                              onChange={(e) =>
+                                handleIndicatorChange('cci', e.target.checked, { window: 20 })
+                              }
+                            />
+                          }
+                          label="CCI"
+                        />
+                        {indicators.cci && (
+                          <TextField
+                            type="number"
+                            label="Window"
+                            value={indicators.cci.window || 20}
+                            onChange={(e) =>
+                              handleIndicatorChange('cci', true, {
+                                window: parseInt(e.target.value) || 20,
+                              })
+                            }
+                            size="small"
+                            fullWidth
+                            sx={{ mt: 1 }}
+                            inputProps={{ min: 5, max: 100 }}
+                          />
+                        )}
+                      </Box>
+
+                      {/* ROC */}
+                      <Box>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={!!indicators.roc}
+                              onChange={(e) =>
+                                handleIndicatorChange('roc', e.target.checked, { window: 12 })
+                              }
+                            />
+                          }
+                          label="ROC"
+                        />
+                        {indicators.roc && (
+                          <TextField
+                            type="number"
+                            label="Window"
+                            value={indicators.roc.window || 12}
+                            onChange={(e) =>
+                              handleIndicatorChange('roc', true, {
+                                window: parseInt(e.target.value) || 12,
+                              })
+                            }
+                            size="small"
+                            fullWidth
+                            sx={{ mt: 1 }}
+                            inputProps={{ min: 1, max: 50 }}
+                          />
+                        )}
+                      </Box>
+                    </Box>
+                  </AccordionDetails>
+                </Accordion>
+
+                {/* Volatility Indicators */}
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <ShowChartIcon fontSize="small" sx={{ color: 'error.main' }} />
+                      <Typography variant="subtitle2">Volatility Indicators</Typography>
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {/* Bollinger Bands */}
                       <Box>
                         <FormControlLabel
                           control={
@@ -433,7 +631,98 @@ export default function DataExplorer() {
                         )}
                       </Box>
 
-                      {/* ATR */}
+                      {/* Ichimoku */}
+                      <Box>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={!!indicators.ichimoku}
+                              onChange={(e) =>
+                                handleIndicatorChange('ichimoku', e.target.checked, {
+                                  tenkan: 9,
+                                  kijun: 26,
+                                  senkou: 52,
+                                })
+                              }
+                            />
+                          }
+                          label="Ichimoku Cloud"
+                        />
+                        {indicators.ichimoku && (
+                          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <TextField
+                              type="number"
+                              label="Tenkan"
+                              value={indicators.ichimoku.tenkan || 9}
+                              onChange={(e) =>
+                                handleIndicatorChange('ichimoku', true, {
+                                  ...indicators.ichimoku,
+                                  tenkan: parseInt(e.target.value) || 9,
+                                })
+                              }
+                              size="small"
+                              fullWidth
+                              inputProps={{ min: 1, max: 50 }}
+                            />
+                            <TextField
+                              type="number"
+                              label="Kijun"
+                              value={indicators.ichimoku.kijun || 26}
+                              onChange={(e) =>
+                                handleIndicatorChange('ichimoku', true, {
+                                  ...indicators.ichimoku,
+                                  kijun: parseInt(e.target.value) || 26,
+                                })
+                              }
+                              size="small"
+                              fullWidth
+                              inputProps={{ min: 1, max: 100 }}
+                            />
+                            <TextField
+                              type="number"
+                              label="Senkou"
+                              value={indicators.ichimoku.senkou || 52}
+                              onChange={(e) =>
+                                handleIndicatorChange('ichimoku', true, {
+                                  ...indicators.ichimoku,
+                                  senkou: parseInt(e.target.value) || 52,
+                                })
+                              }
+                              size="small"
+                              fullWidth
+                              inputProps={{ min: 1, max: 200 }}
+                            />
+                          </Box>
+                        )}
+                      </Box>
+
+                      {/* VWAP */}
+                      <Box>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={!!indicators.vwap}
+                              onChange={(e) => handleIndicatorChange('vwap', e.target.checked)}
+                            />
+                          }
+                          label="VWAP"
+                        />
+                      </Box>
+                    </Box>
+                  </AccordionDetails>
+                </Accordion>
+
+                {/* Momentum Indicators */}
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <SpeedIcon fontSize="small" sx={{ color: 'warning.main' }} />
+                      <Typography variant="subtitle2">Momentum Indicators</Typography>
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {/* RSI */}
                       <Box>
                         <FormControlLabel
                           control={
@@ -507,6 +796,39 @@ export default function DataExplorer() {
                           />
                         )}
                       </Box>
+
+                      {/* Volume Profile */}
+                      <Box>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={!!indicators.volumeProfile}
+                              onChange={(e) =>
+                                handleIndicatorChange('volumeProfile', e.target.checked, {
+                                  bins: 20,
+                                })
+                              }
+                            />
+                          }
+                          label="Volume Profile"
+                        />
+                        {indicators.volumeProfile && (
+                          <TextField
+                            type="number"
+                            label="Bins"
+                            value={indicators.volumeProfile.bins || 20}
+                            onChange={(e) =>
+                              handleIndicatorChange('volumeProfile', true, {
+                                bins: parseInt(e.target.value) || 20,
+                              })
+                            }
+                            size="small"
+                            fullWidth
+                            sx={{ mt: 1 }}
+                            inputProps={{ min: 5, max: 100 }}
+                          />
+                        )}
+                      </Box>
                     </Box>
                   </AccordionDetails>
                 </Accordion>
@@ -553,7 +875,7 @@ export default function DataExplorer() {
                 </Box>
               )}
 
-              {tabValue === 1 && (
+              {tabValue === 2 && (
                 <Box sx={{ p: 3 }}>
                   <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
                     Data Preview

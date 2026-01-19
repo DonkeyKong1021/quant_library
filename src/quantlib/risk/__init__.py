@@ -8,6 +8,14 @@ from quantlib.risk.metrics import (
     beta,
     alpha,
     jensen_alpha,
+    annualized_volatility,
+    omega_ratio,
+    tail_ratio,
+    skewness,
+    kurtosis,
+    win_rate,
+    profit_factor,
+    average_win_loss,
 )
 from quantlib.risk.drawdown import (
     calculate_drawdown,
@@ -15,6 +23,9 @@ from quantlib.risk.drawdown import (
     max_drawdown_pct,
     drawdown_duration,
     underwater_curve,
+    average_drawdown_duration,
+    drawdown_recovery_time,
+    ulcer_index,
 )
 from quantlib.risk.var import (
     historical_var,
@@ -22,6 +33,7 @@ from quantlib.risk.var import (
     monte_carlo_var,
     cvar,
 )
+from quantlib.risk.calculator import RiskCalculator
 
 __all__ = [
     # Performance metrics
@@ -32,15 +44,28 @@ __all__ = [
     "beta",
     "alpha",
     "jensen_alpha",
+    "annualized_volatility",
+    "omega_ratio",
+    "tail_ratio",
+    "skewness",
+    "kurtosis",
+    "win_rate",
+    "profit_factor",
+    "average_win_loss",
     # Drawdown
     "calculate_drawdown",
     "max_drawdown",
     "max_drawdown_pct",
     "drawdown_duration",
     "underwater_curve",
+    "average_drawdown_duration",
+    "drawdown_recovery_time",
+    "ulcer_index",
     # VaR
     "historical_var",
     "parametric_var",
     "monte_carlo_var",
     "cvar",
+    # Calculator
+    "RiskCalculator",
 ]

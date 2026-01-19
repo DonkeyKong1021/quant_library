@@ -19,6 +19,7 @@ from quantlib.backtesting import BacktestEngine
 from quantlib.data import DataStore
 from quantlib.data.fetcher_registry import get_registry
 from quantlib.indicators import sma, rsi, bollinger_bands, macd
+from quantlib.risk import RiskCalculator
 from quantlib.risk.metrics import (
     sharpe_ratio,
     sortino_ratio,
@@ -328,22 +329,52 @@ async def run_backtest(request: BacktestRequest):
         
         results = engine.run(strategy, data_df, symbol=request.symbol)
         
-        # Calculate additional metrics
+        # Extract data for metrics calculation
         returns = results.get('returns', pd.Series())
         equity_curve = results.get('equity_curve', pd.Series())
+        trades_df = results.get('trades', pd.DataFrame())
         
+        # Calculate comprehensive metrics using RiskCalculator
         metrics = {}
         if len(returns) > 0:
-            metrics['sharpe_ratio'] = float(sharpe_ratio(returns))
-            metrics['sortino_ratio'] = float(sortino_ratio(returns))
-            if len(equity_curve) > 0:
-                max_dd = max_drawdown(equity_curve)
-                max_dd_pct = max_drawdown_pct(equity_curve)
-                metrics['max_drawdown'] = float(max_dd)
-                metrics['max_drawdown_pct'] = float(max_dd_pct)
-                if max_dd_pct != 0:
-                    metrics['calmar_ratio'] = float(calmar_ratio(returns, abs(max_dd_pct / 100)))
+            try:
+                # Prepare trades DataFrame with PnL if available
+                trades_for_metrics = None
+                if not trades_df.empty:
+                    # Try to calculate PnL from trades if not present
+                    if 'pnl' not in trades_df.columns and 'price' in trades_df.columns:
+                        # Simple PnL calculation (can be enhanced)
+                        trades_for_metrics = trades_df.copy()
+                    elif 'pnl' in trades_df.columns:
+                        trades_for_metrics = trades_df.copy()
+                
+                # Create risk calculator
+                calculator = RiskCalculator(
+                    returns=returns,
+                    equity_curve=equity_curve if len(equity_curve) > 0 else None,
+                    trades=trades_for_metrics,
+                    risk_free_rate=config.get('risk_free_rate', 0.0),
+                    periods=252,  # Daily data
+                )
+                
+                # Get all metrics (flat structure for API)
+                all_metrics = calculator.get_flat_metrics()
+                metrics.update(all_metrics)
+            except Exception as e:
+                print(f"Warning: Error calculating comprehensive metrics: {e}")
+                # Fall back to basic metrics
+                if len(returns) > 0:
+                    metrics['sharpe_ratio'] = float(sharpe_ratio(returns))
+                    metrics['sortino_ratio'] = float(sortino_ratio(returns))
+                    if len(equity_curve) > 0:
+                        max_dd = max_drawdown(equity_curve)
+                        max_dd_pct = max_drawdown_pct(equity_curve)
+                        metrics['max_drawdown'] = float(max_dd)
+                        metrics['max_drawdown_pct'] = float(max_dd_pct)
+                        if max_dd_pct != 0:
+                            metrics['calmar_ratio'] = float(calmar_ratio(returns, abs(max_dd_pct / 100)))
         
+        # Add basic result metrics
         metrics['total_return'] = float(results.get('total_return', 0))
         metrics['num_trades'] = int(results.get('num_trades', 0))
         metrics['initial_capital'] = float(results.get('initial_capital', initial_capital))
@@ -423,19 +454,33 @@ async def run_backtest(request: BacktestRequest):
                         
                         benchmark_metrics = {}
                         try:
-                            benchmark_metrics['alpha'] = float(alpha(strategy_ret_aligned, bench_ret_aligned))
-                        except Exception:
-                            benchmark_metrics['alpha'] = None
-                        
-                        try:
-                            benchmark_metrics['beta'] = float(beta(strategy_ret_aligned, bench_ret_aligned))
-                        except Exception:
-                            benchmark_metrics['beta'] = None
-                        
-                        try:
-                            benchmark_metrics['information_ratio'] = float(information_ratio(strategy_ret_aligned, bench_ret_aligned))
-                        except Exception:
-                            benchmark_metrics['information_ratio'] = None
+                            # Use RiskCalculator for benchmark metrics
+                            benchmark_calc = RiskCalculator(
+                                returns=strategy_ret_aligned,
+                                equity_curve=equity_curve.loc[common_index] if len(equity_curve) > 0 else None,
+                                benchmark_returns=bench_ret_aligned,
+                                risk_free_rate=config.get('risk_free_rate', 0.0),
+                                periods=252,
+                            )
+                            bench_metrics = benchmark_calc.calculate_benchmark_metrics()
+                            benchmark_metrics.update(bench_metrics)
+                        except Exception as e:
+                            print(f"Warning: Error calculating benchmark metrics with RiskCalculator: {e}")
+                            # Fall back to individual calculations
+                            try:
+                                benchmark_metrics['alpha'] = float(alpha(strategy_ret_aligned, bench_ret_aligned))
+                            except Exception:
+                                benchmark_metrics['alpha'] = None
+                            
+                            try:
+                                benchmark_metrics['beta'] = float(beta(strategy_ret_aligned, bench_ret_aligned))
+                            except Exception:
+                                benchmark_metrics['beta'] = None
+                            
+                            try:
+                                benchmark_metrics['information_ratio'] = float(information_ratio(strategy_ret_aligned, bench_ret_aligned))
+                            except Exception:
+                                benchmark_metrics['information_ratio'] = None
                         
                         benchmark_total_return = ((benchmark_close.iloc[-1] / benchmark_close.iloc[0]) - 1) * 100
                         benchmark_metrics['total_return'] = float(benchmark_total_return)

@@ -117,9 +117,9 @@ def main():
     equity = portfolio.get_total_equity(current_prices)
     print(f"   Portfolio equity: ${equity:,.2f}")
     
-    # Test broker
+    # Test broker (execution-only)
     print("\n4. Testing simulated broker...")
-    broker = SimulatedBroker(initial_capital=100000, commission=1.0)
+    broker = SimulatedBroker(commission=1.0)
     from quantlib.backtesting.event import OrderEvent
     
     order = OrderEvent(
@@ -131,12 +131,10 @@ def main():
     )
     
     current_price = float(data['Close'].iloc[0])
-    fill = broker.execute_order(order, current_price, datetime.now())
+    execution_price, commission = broker.calculate_execution(order, current_price, datetime.now())
     
-    if fill:
-        print(f"   Order filled: {fill.quantity} shares @ ${fill.price:.2f}")
-        print(f"   Cash remaining: ${broker.get_cash():,.2f}")
-        print(f"   Position: {broker.get_position('SYMBOL')} shares")
+    print(f"   Execution price: ${execution_price:.2f}")
+    print(f"   Commission: ${commission:.2f}")
     
     # Test risk metrics
     print("\n5. Testing risk metrics...")
