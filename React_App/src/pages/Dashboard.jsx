@@ -137,7 +137,7 @@ export default function Dashboard() {
               WebkitTextFillColor: 'transparent',
             }}
           >
-            Welcome to QuantLib
+            Welcome to QuantLib, an Open-Source Quantitative Backtesting Platform
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ fontSize: '1.0625rem' }}>
             Professional quantitative trading library for backtesting and strategy development
