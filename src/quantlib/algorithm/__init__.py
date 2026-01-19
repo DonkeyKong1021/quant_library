@@ -5,6 +5,7 @@ from quantlib.algorithm.universe import (
     UniverseSelection,
     ManualUniverse,
     CoarseUniverse,
+    FineUniverse,
 )
 from quantlib.algorithm.alpha import (
     AlphaModel,
@@ -18,6 +19,8 @@ from quantlib.algorithm.portfolio import (
 from quantlib.algorithm.execution import (
     ExecutionModel,
     ImmediateExecutionModel,
+    VWAPExecutionModel,
+    TWAPExecutionModel,
 )
 from quantlib.algorithm.risk import (
     RiskManagementModel,
@@ -31,6 +34,7 @@ __all__ = [
     "UniverseSelection",
     "ManualUniverse",
     "CoarseUniverse",
+    "FineUniverse",
     "AlphaModel",
     "Insight",
     "PortfolioConstructionModel",

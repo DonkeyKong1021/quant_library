@@ -15,17 +15,22 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material'
 import DownloadIcon from '@mui/icons-material/Download'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import SpeedIcon from '@mui/icons-material/Speed'
 import ShowChartIcon from '@mui/icons-material/ShowChart'
 import BarChartIcon from '@mui/icons-material/BarChart'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import DataFetcher from '../components/DataFetcher'
 import DataExplorerChart from '../components/DataExplorerChart'
 import DataStatistics from '../components/DataStatistics'
 import IndicatorStatistics from '../components/IndicatorStatistics'
 import ChartLibrarySelector from '../components/ChartLibrarySelector'
+import FundamentalData from '../components/FundamentalData'
 
 export default function DataExplorer() {
   const [data, setData] = useState(null)
@@ -56,8 +61,9 @@ export default function DataExplorer() {
     volumeSma: null,
     volumeProfile: null,
   })
-  const [tabValue, setTabValue] = useState(0)
   const [indicatorTabValue, setIndicatorTabValue] = useState(0)
+  const [expandedAccordion, setExpandedAccordion] = useState('')
+  const [userHasManuallyExpanded, setUserHasManuallyExpanded] = useState(false)
   
   // Filtering state
   const [filteredData, setFilteredData] = useState(null)
@@ -69,6 +75,14 @@ export default function DataExplorer() {
     setData(fetchedData)
     setSelectedSymbol(symbol)
   }
+
+  // Reset accordion state when no data exists
+  useEffect(() => {
+    if (!data) {
+      setExpandedAccordion('')
+      setUserHasManuallyExpanded(false)
+    }
+  }, [data])
 
   const handleIndicatorChange = (indicatorType, enabled, params = {}) => {
     setIndicators((prev) => ({
@@ -117,16 +131,154 @@ export default function DataExplorer() {
         </Typography>
       </Box>
 
-      <Box sx={{ mb: 4 }}>
-        <DataFetcher onDataFetched={handleDataFetched} />
-      </Box>
+      {/* Main Content */}
+      <Box sx={{ position: 'relative' }}>
+        <Accordion
+          expanded={expandedAccordion === 'fetch-data'}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'fetch-data' : '')
+            setUserHasManuallyExpanded(true)
+          }}
+          sx={{ mb: 2 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Fetch Market Data
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <DataFetcher onDataFetched={handleDataFetched} />
+          </AccordionDetails>
+        </Accordion>
 
-      {data && (
-        <>
-          {/* Chart Configuration */}
-          <Box sx={{ mb: 1.5 }}>
-            <Paper sx={{ p: 1.5, elevation: 1 }}>
-                <Grid container spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
+        {/* Data Table */}
+        <Accordion
+          expanded={expandedAccordion === 'data-table'}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'data-table' : '')
+            setUserHasManuallyExpanded(true)
+          }}
+          disabled={!data}
+          sx={{ mb: 2 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Data Table
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            {data && (
+              <Box sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                  Data Preview
+                </Typography>
+                <Box
+                  sx={{
+                    maxHeight: 400,
+                    overflow: 'auto',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                  }}
+                >
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1 }}>
+                      <tr>
+                        <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'left' }}>
+                          Date
+                        </th>
+                        <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'right' }}>
+                          Open
+                        </th>
+                        <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'right' }}>
+                          High
+                        </th>
+                        <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'right' }}>
+                          Low
+                        </th>
+                        <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'right' }}>
+                          Close
+                        </th>
+                        <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'right' }}>
+                          Volume
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.slice(0, 100).map((row, index) => (
+                        <tr key={index}>
+                          <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>
+                            {new Date(row.Date).toISOString().split('T')[0]}
+                          </td>
+                          <td style={{ padding: '8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>
+                            {row.Open.toFixed(2)}
+                          </td>
+                          <td style={{ padding: '8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>
+                            {row.High.toFixed(2)}
+                          </td>
+                          <td style={{ padding: '8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>
+                            {row.Low.toFixed(2)}
+                          </td>
+                          <td style={{ padding: '8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>
+                            {row.Close.toFixed(2)}
+                          </td>
+                          <td style={{ padding: '8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>
+                            {row.Volume ? row.Volume.toLocaleString() : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {(filteredData || data).length > 100 && (
+                    <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+                      Showing first 100 rows of {(filteredData || data).length} total rows
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            )}
+          </AccordionDetails>
+        </Accordion>
+
+        {/* Data Summary */}
+        <Accordion
+          expanded={expandedAccordion === 'data-summary'}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'data-summary' : '')
+            setUserHasManuallyExpanded(true)
+          }}
+          disabled={!data}
+          sx={{ mb: 2 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Data Summary
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            {data && <DataStatistics data={data} />}
+          </AccordionDetails>
+        </Accordion>
+
+        {/* Chart Configuration & Indicators */}
+        <Accordion
+          expanded={expandedAccordion === 'chart-config'}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'chart-config' : '')
+            setUserHasManuallyExpanded(true)
+          }}
+          disabled={!data}
+          sx={{ mb: 2 }}
+        >
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Chart Configuration & Indicators
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                {data && (
+                  <>
+                    <Grid container spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
                   <Grid item xs="auto">
                     <Typography variant="h6" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
                       Chart Configuration
@@ -885,135 +1037,84 @@ export default function DataExplorer() {
                     </Grid>
                   </Box>
                 )}
-            </Paper>
-          </Box>
+                  </>
+                )}
+              </AccordionDetails>
+        </Accordion>
 
-          {/* Chart */}
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Paper sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Price Chart
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                    <ChartLibrarySelector />
-                    <Button
-                      variant="outlined"
-                      startIcon={<DownloadIcon />}
-                      onClick={handleExportCSV}
-                      size="small"
-                    >
-                      Export CSV
-                    </Button>
-                  </Box>
-                </Box>
-                <DataExplorerChart
-                  data={filteredData || data}
-                  chartType={chartType}
-                  indicators={indicators}
-                  showVolume={showVolume}
-                />
-              </Paper>
-            </Grid>
-          </Grid>
-
-          {/* Tabs for Statistics and Analysis */}
-          <Box sx={{ mt: 3 }}>
-            <Paper sx={{ elevation: 1 }}>
-              <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
-                <Tab label="Statistics" />
-                <Tab label="Data Preview" />
-              </Tabs>
-
-              {tabValue === 0 && (
-                <Box sx={{ p: 3 }}>
-                  <DataStatistics data={data} />
-                </Box>
-              )}
-
-              {tabValue === 2 && (
-                <Box sx={{ p: 3 }}>
-                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
-                    Data Preview
-                  </Typography>
-                  <Box
-                    sx={{
-                      maxHeight: 400,
-                      overflow: 'auto',
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                    }}
-                  >
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1 }}>
-                        <tr>
-                          <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'left' }}>
-                            Date
-                          </th>
-                          <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'right' }}>
-                            Open
-                          </th>
-                          <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'right' }}>
-                            High
-                          </th>
-                          <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'right' }}>
-                            Low
-                          </th>
-                          <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'right' }}>
-                            Close
-                          </th>
-                          <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'right' }}>
-                            Volume
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.slice(0, 100).map((row, index) => (
-                          <tr key={index}>
-                            <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>
-                              {new Date(row.Date).toISOString().split('T')[0]}
-                            </td>
-                            <td style={{ padding: '8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>
-                              {row.Open.toFixed(2)}
-                            </td>
-                            <td style={{ padding: '8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>
-                              {row.High.toFixed(2)}
-                            </td>
-                            <td style={{ padding: '8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>
-                              {row.Low.toFixed(2)}
-                            </td>
-                            <td style={{ padding: '8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>
-                              {row.Close.toFixed(2)}
-                            </td>
-                            <td style={{ padding: '8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>
-                              {row.Volume ? row.Volume.toLocaleString() : '-'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {(filteredData || data).length > 100 && (
-                      <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
-                        Showing first 100 rows of {(filteredData || data).length} total rows
+        {/* Chart Display */}
+        <Accordion
+          expanded={expandedAccordion === 'chart-display'}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'chart-display' : '')
+            setUserHasManuallyExpanded(true)
+          }}
+          disabled={!data}
+          sx={{ mb: 2 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Chart Display
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            {data && (
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        Price Chart
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <ChartLibrarySelector />
+                        <Button
+                          variant="outlined"
+                          startIcon={<DownloadIcon />}
+                          onClick={handleExportCSV}
+                          size="small"
+                        >
+                          Export CSV
+                        </Button>
                       </Box>
-                    )}
-                  </Box>
-                </Box>
-              )}
-            </Paper>
-          </Box>
-        </>
-      )}
+                    </Box>
+                    <DataExplorerChart
+                      data={filteredData || data}
+                      chartType={chartType}
+                      indicators={indicators}
+                      showVolume={showVolume}
+                    />
+                  </Paper>
+                </Grid>
+              </Grid>
+            )}
+          </AccordionDetails>
+        </Accordion>
 
-      {!data && (
-        <Paper sx={{ p: 6, textAlign: 'center', elevation: 1, border: '1px dashed', borderColor: 'divider', borderRadius: 3 }}>
-          <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
-            Please fetch data above to continue
-          </Typography>
-        </Paper>
-      )}
+        {/* Fundamentals */}
+        <Accordion
+          expanded={expandedAccordion === 'fundamentals'}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'fundamentals' : '')
+            setUserHasManuallyExpanded(true)
+          }}
+          disabled={!data}
+          sx={{ mb: 2 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Fundamentals
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            {data && (
+              <Box sx={{ p: 3 }}>
+                <FundamentalData symbol={selectedSymbol} />
+              </Box>
+            )}
+          </AccordionDetails>
+        </Accordion>
+      </Box>
     </Container>
   )
 }

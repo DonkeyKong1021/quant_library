@@ -20,7 +20,22 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-from api.routers import database, data, backtest, strategies, indicators, settings, database_info
+from api.routers import database, data, backtest, strategies, indicators, settings, database_info, paper_trading
+try:
+    from api.routers import fundamental
+    FUNDAMENTAL_AVAILABLE = True
+except ImportError:
+    FUNDAMENTAL_AVAILABLE = False
+try:
+    from api.routers import versioning
+    VERSIONING_AVAILABLE = True
+except ImportError:
+    VERSIONING_AVAILABLE = False
+try:
+    from api.routers import deployment
+    DEPLOYMENT_AVAILABLE = True
+except ImportError:
+    DEPLOYMENT_AVAILABLE = False
 
 app = FastAPI(
     title="QuantLib API",
@@ -50,6 +65,13 @@ app.include_router(strategies.router, prefix="/api/strategies", tags=["strategie
 app.include_router(indicators.router, prefix="/api/indicators", tags=["indicators"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 app.include_router(database_info.router, prefix="/api/database-info", tags=["database-info"])
+app.include_router(paper_trading.router, prefix="/api/paper-trading", tags=["paper-trading"])
+if FUNDAMENTAL_AVAILABLE:
+    app.include_router(fundamental.router, prefix="/api/fundamental", tags=["fundamental"])
+if VERSIONING_AVAILABLE:
+    app.include_router(versioning.router, prefix="/api/versioning", tags=["versioning"])
+if DEPLOYMENT_AVAILABLE:
+    app.include_router(deployment.router, prefix="/api/deployment", tags=["deployment"])
 
 
 @app.get("/")

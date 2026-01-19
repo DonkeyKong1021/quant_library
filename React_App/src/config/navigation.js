@@ -9,6 +9,7 @@ import ExploreIcon from '@mui/icons-material/Explore'
 import BuildIcon from '@mui/icons-material/Build'
 import HistoryIcon from '@mui/icons-material/History'
 import TuneIcon from '@mui/icons-material/Tune'
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 
 /**
  * Navigation items configuration
@@ -63,6 +64,14 @@ export const navigationItems = [
     description: 'Optimize strategy parameters',
     group: 'backtest',
   },
+  {
+    text: 'Paper Trading',
+    icon: AccountBalanceWalletIcon,
+    path: '/paper-trading',
+    shortcut: '6',
+    description: 'Simulated live trading with paper money',
+    group: 'trading',
+  },
 ]
 
 /**
@@ -70,6 +79,7 @@ export const navigationItems = [
  */
 export const routeLabels = {
   '/': 'Dashboard',
+  '/paper-trading': 'Paper Trading',
   '/optimization': 'Optimization',
   '/backtest': 'Backtesting',
   '/backtest-history': 'Backtest History',

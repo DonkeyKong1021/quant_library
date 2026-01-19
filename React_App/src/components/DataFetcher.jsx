@@ -30,7 +30,6 @@ import SearchIcon from '@mui/icons-material/Search'
 import CachedIcon from '@mui/icons-material/Cached'
 import InfoIcon from '@mui/icons-material/Info'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import DataPreview from './DataPreview'
 
 // Preset date ranges
 const DATE_PRESETS = [
@@ -607,49 +606,7 @@ export default function DataFetcher({ onDataFetched }) {
       </Paper>
 
       {/* Connecting line from step 1 to step 2 */}
-      {fetchedData && fetchedData.length > 0 && (
-        <Box
-          sx={{
-            position: 'relative',
-            height: 16,
-            mt: -1,
-            mb: -1,
-          }}
-        >
-          <Box
-            sx={{
-              position: 'absolute',
-              left: 20,
-              top: 0,
-              width: 2,
-              height: '100%',
-              backgroundColor: 'success.main',
-              zIndex: 0,
-            }}
-          />
-        </Box>
-      )}
 
-      {/* Data Preview */}
-      <AnimatePresence>
-        {fetchedData && fetchedData.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <DataPreview
-              data={fetchedData}
-              metadata={symbolMetadata}
-              cached={dataCached}
-              symbol={symbol.toUpperCase()}
-              stepNumber={2}
-              stepStatus={fetchedData ? 'completed' : 'pending'}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
     </>
   )
 }

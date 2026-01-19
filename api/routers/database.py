@@ -6,6 +6,7 @@ import sys
 import json
 from pathlib import Path
 from datetime import datetime, timedelta
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 
 # Add project root to path
@@ -58,10 +59,16 @@ async def get_database_symbols():
 
 
 @router.get("/statistics", response_model=DatabaseStatisticsResponse)
-async def get_database_statistics():
-    """Get comprehensive database statistics"""
+async def get_database_statistics(source: Optional[str] = None):
+    """
+    Get comprehensive database statistics
+    
+    Args:
+        source: Data source name ('yahoo', 'alpha_vantage', 'polygon'). 
+                If None, defaults to 'yahoo' for backward compatibility.
+    """
     try:
-        store = DataStore()
+        store = DataStore(data_source=source or 'yahoo')
         all_metadata = store.get_all_metadata()
         
         if not all_metadata:
@@ -92,10 +99,10 @@ async def get_database_statistics():
         last_updates = [m.get('last_update') for m in all_metadata.values() if m.get('last_update')]
         last_update = max(last_updates) if last_updates else None
         
-        # Get database size
+        # Get database size (use the same database as the store)
         total_size_gb = 0
         try:
-            engine = create_database_engine()
+            engine = store.engine
             with engine.connect() as conn:
                 db_name_result = conn.execute(text("SELECT current_database()"))
                 db_name = db_name_result.scalar()

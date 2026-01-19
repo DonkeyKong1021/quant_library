@@ -37,7 +37,7 @@ export function useNotifications() {
     setOpen(false)
   }, [])
 
-  const NotificationComponent = (
+  const NotificationComponent = () => (
     <Snackbar
       open={open}
       autoHideDuration={6000}

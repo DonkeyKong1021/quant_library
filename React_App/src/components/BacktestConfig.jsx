@@ -21,6 +21,7 @@ export default function BacktestConfig({ onConfigChanged }) {
   const [commissionType, setCommissionType] = useState('fixed')
   const [useBenchmark, setUseBenchmark] = useState(true)
   const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
+  const [defaultOrderType, setDefaultOrderType] = useState('MARKET')
 
   const handleConfig = () => {
     if (onConfigChanged) {
@@ -31,6 +32,7 @@ export default function BacktestConfig({ onConfigChanged }) {
         commission_type: commissionType,
         use_benchmark: useBenchmark,
         benchmark_symbol: benchmarkSymbol,
+        default_order_type: defaultOrderType,
       })
     }
   }
@@ -91,6 +93,23 @@ export default function BacktestConfig({ onConfigChanged }) {
             >
               <MenuItem value="fixed">Fixed ($ per trade)</MenuItem>
               <MenuItem value="percentage">Percentage (% of value)</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <FormControl fullWidth>
+            <InputLabel>Default Order Type</InputLabel>
+            <Select
+              value={defaultOrderType}
+              label="Default Order Type"
+              onChange={(e) => setDefaultOrderType(e.target.value)}
+            >
+              <MenuItem value="MARKET">Market Order</MenuItem>
+              <MenuItem value="LIMIT">Limit Order</MenuItem>
+              <MenuItem value="STOP">Stop Order</MenuItem>
+              <MenuItem value="STOP_LIMIT">Stop-Limit Order</MenuItem>
+              <MenuItem value="TRAILING_STOP">Trailing Stop Order</MenuItem>
             </Select>
           </FormControl>
         </Grid>

@@ -6,8 +6,10 @@ import pandas as pd
 import numpy as np
 from queue import PriorityQueue
 
-from quantlib.backtesting.event import Event, MarketEvent, SignalEvent, OrderEvent, FillEvent
+from quantlib.backtesting.event import Event, MarketEvent, SignalEvent, OrderEvent, FillEvent, OrderStatus
 from quantlib.backtesting.broker import SimulatedBroker
+from quantlib.backtesting.order_manager import OrderManager
+from quantlib.backtesting.scheduler import Scheduler
 from quantlib.portfolio import Portfolio
 
 # Import AlgorithmFramework for type checking (optional dependency)
@@ -46,6 +48,8 @@ class BacktestEngine:
         )
         self.portfolio = Portfolio(initial_cash=initial_capital)
         self.events = PriorityQueue()
+        self.order_manager = OrderManager()
+        self.scheduler = Scheduler()
         self.data = None
         self.strategy = None
         self.current_time = None
@@ -100,6 +104,8 @@ class BacktestEngine:
         
         # Reset state
         self.portfolio = Portfolio(initial_cash=self.initial_capital)
+        self.order_manager.clear()
+        self.scheduler.clear()
         self.equity_curve = []
         self.trades = []
         self.positions_history = []
@@ -124,6 +130,9 @@ class BacktestEngine:
             market_event = MarketEvent(timestamp)
             self._add_event(market_event)
             
+            # Check pending orders for execution (before processing other events)
+            self._check_pending_orders(bar)
+            
             # Process events for this timestamp
             self._process_events()
             
@@ -140,8 +149,11 @@ class BacktestEngine:
                 else:
                     self._current_prices = {'SYMBOL': close_price}
             
-            # Call strategy
+            # Check scheduled events
             context = self._create_context()
+            self.scheduler.check_and_execute(context)
+            
+            # Call strategy
             if is_framework:
                 # Framework expects multi-symbol data format
                 if self._symbol:
@@ -204,6 +216,41 @@ class BacktestEngine:
         
         return Context(self)
     
+    def _check_pending_orders(self, bar: pd.Series):
+        """Check pending orders for execution conditions"""
+        symbol = self._symbol if self._symbol else 'SYMBOL'
+        high = bar.get('High', bar.get('Close', 0))
+        low = bar.get('Low', bar.get('Close', 0))
+        close = bar.get('Close', 0)
+        
+        fills = self.order_manager.check_orders(symbol, high, low, close, self.current_time)
+        
+        for fill in fills:
+            # Apply commission
+            execution_price, commission = self.broker.calculate_execution(
+                OrderEvent(
+                    timestamp=self.current_time,
+                    symbol=fill.symbol,
+                    order_type='MARKET',  # Fill is already determined
+                    quantity=fill.quantity,
+                    direction=fill.direction
+                ),
+                fill.price,
+                self.current_time
+            )
+            fill.commission = commission
+            
+            # Validate and add fill event
+            symbol_upper = fill.symbol.upper()
+            if fill.direction == 'BUY':
+                total_cost = fill.quantity * fill.price + commission
+                if self.portfolio.get_cash() >= total_cost:
+                    self._add_event(fill)
+            else:  # SELL
+                current_position = self.portfolio.get_position(symbol_upper)
+                if current_position >= fill.quantity:
+                    self._add_event(fill)
+    
     def _process_events(self):
         """Process all events in queue for current timestamp"""
         while not self.events.empty():
@@ -236,46 +283,52 @@ class BacktestEngine:
                     self._add_event(order)
             
             elif isinstance(event, OrderEvent):
-                # Execute order
-                # Get current price from current_prices or data
-                symbol_upper = event.symbol.upper()
-                if hasattr(self, '_current_prices') and symbol_upper in self._current_prices:
-                    current_price = self._current_prices[symbol_upper]
-                elif self.current_time in self.data.index:
-                    bar = self.data.loc[self.current_time]
-                    current_price = bar['Close']
+                # Handle order placement
+                if event.order_type == 'MARKET':
+                    # Market orders execute immediately
+                    symbol_upper = event.symbol.upper()
+                    if hasattr(self, '_current_prices') and symbol_upper in self._current_prices:
+                        current_price = self._current_prices[symbol_upper]
+                    elif self.current_time in self.data.index:
+                        bar = self.data.loc[self.current_time]
+                        current_price = bar['Close']
+                    else:
+                        continue  # Skip if no price available
+                    
+                    # Calculate execution price and commission
+                    execution_price, commission = self.broker.calculate_execution(
+                        event, current_price, self.current_time
+                    )
+                    
+                    # Check if we have enough cash/positions (validation)
+                    quantity = event.quantity
+                    
+                    if event.direction == 'BUY':
+                        total_cost = quantity * execution_price + commission
+                        if self.portfolio.get_cash() < total_cost:
+                            # Insufficient funds - reject order
+                            event.status = OrderStatus.REJECTED
+                            continue
+                    else:  # SELL
+                        current_position = self.portfolio.get_position(symbol_upper)
+                        if current_position < quantity:
+                            # Insufficient position - reject order
+                            event.status = OrderStatus.REJECTED
+                            continue
+                    
+                    # Create fill event
+                    fill = FillEvent(
+                        timestamp=self.current_time,
+                        symbol=event.symbol,
+                        quantity=quantity,
+                        direction=event.direction,
+                        price=execution_price,
+                        commission=commission
+                    )
+                    self._add_event(fill)
                 else:
-                    continue  # Skip if no price available
-                
-                # Calculate execution price and commission (broker is execution-only)
-                execution_price, commission = self.broker.calculate_execution(
-                    event, current_price, self.current_time
-                )
-                
-                # Check if we have enough cash/positions (validation)
-                quantity = event.quantity
-                
-                if event.direction == 'BUY':
-                    total_cost = quantity * execution_price + commission
-                    if self.portfolio.get_cash() < total_cost:
-                        # Insufficient funds - skip this order
-                        continue
-                else:  # SELL
-                    current_position = self.portfolio.get_position(symbol_upper)
-                    if current_position < quantity:
-                        # Insufficient position - skip this order
-                        continue
-                
-                # Create fill event
-                fill = FillEvent(
-                    timestamp=self.current_time,
-                    symbol=event.symbol,
-                    quantity=quantity,
-                    direction=event.direction,
-                    price=execution_price,
-                    commission=commission
-                )
-                self._add_event(fill)
+                    # Non-market orders go to order manager as pending orders
+                    self.order_manager.add_order(event)
             
             elif isinstance(event, FillEvent):
                 # Record trade in Portfolio and trades list

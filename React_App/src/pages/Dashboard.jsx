@@ -193,7 +193,7 @@ export default function Dashboard() {
             console.error('Database status error:', err)
             return { connected: false, message: err.message || 'Connection failed' }
           }),
-          dataService.getDatabaseStatistics().catch(() => null),
+          dataService.getDatabaseStatistics(currentDatabase).catch(() => null),
         ])
         setDbStatus(status)
         setDbStats(stats)
@@ -207,7 +207,7 @@ export default function Dashboard() {
     }
 
     fetchDashboardData()
-  }, [])
+  }, [currentDatabase])
 
   // Fetch backtest data
   useEffect(() => {
@@ -989,23 +989,16 @@ export default function Dashboard() {
           databaseStorage.set(dbSource)
         }}
         onDatabaseChange={(dbSource) => {
-          // Refresh dashboard data after database change
-          const fetchDashboardData = async () => {
-            try {
-              const [status, stats] = await Promise.all([
-                dataService.getDatabaseStatus().catch((err) => {
-                  console.error('Database status error:', err)
-                  return { connected: false, message: err.message || 'Connection failed' }
-                }),
-                dataService.getDatabaseStatistics().catch(() => null),
-              ])
-              setDbStatus(status)
-              setDbStats(stats)
-            } catch (err) {
-              console.error('Dashboard data fetch error:', err)
-            }
-          }
-          fetchDashboardData()
+          // Update current database state - useEffect will handle the refresh
+          setCurrentDatabase(dbSource)
+          databaseStorage.set(dbSource)
+          // Immediately refresh stats for the new database
+          dataService.getDatabaseStatistics(dbSource)
+            .then((stats) => setDbStats(stats))
+            .catch((err) => {
+              console.error('Error fetching database statistics:', err)
+              setDbStats(null)
+            })
         }}
       />
       

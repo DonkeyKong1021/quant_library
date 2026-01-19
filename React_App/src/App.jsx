@@ -12,6 +12,7 @@ const DataExplorer = lazy(() => import('./pages/DataExplorer'))
 const StrategyBuilder = lazy(() => import('./pages/StrategyBuilder'))
 const BacktestHistory = lazy(() => import('./pages/BacktestHistory'))
 const Optimization = lazy(() => import('./pages/Optimization'))
+const PaperTrading = lazy(() => import('./pages/PaperTrading'))
 
 // Loading component with improved styling
 const PageLoader = () => (
@@ -92,6 +93,16 @@ function AnimatedRoutes() {
             <ErrorBoundary>
               <Suspense fallback={<PageLoader />}>
                 <Optimization />
+              </Suspense>
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/paper-trading"
+          element={
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <PaperTrading />
               </Suspense>
             </ErrorBoundary>
           }

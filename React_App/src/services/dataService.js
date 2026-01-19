@@ -12,8 +12,9 @@ export const dataService = {
     return response.data
   },
 
-  async getDatabaseStatistics() {
-    const response = await api.get('/api/database/statistics')
+  async getDatabaseStatistics(source = null) {
+    const params = source ? { source } : {}
+    const response = await api.get('/api/database/statistics', { params })
     return response.data
   },
 
