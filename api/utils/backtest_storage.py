@@ -63,11 +63,12 @@ class BacktestStorage:
                 logger.debug(f"[BacktestStorage] Database connection established, preparing insert")
                 insert_query = text("""
                     INSERT INTO backtest_results 
-                    (result_id, symbol, strategy_name, results, metrics, equity_curve, trades)
-                    VALUES (:result_id, :symbol, :strategy_name, :results, :metrics, :equity_curve, :trades)
+                    (result_id, symbol, strategy_name, custom_name, results, metrics, equity_curve, trades)
+                    VALUES (:result_id, :symbol, :strategy_name, :custom_name, :results, :metrics, :equity_curve, :trades)
                     ON CONFLICT (result_id) DO UPDATE SET
                         symbol = EXCLUDED.symbol,
                         strategy_name = EXCLUDED.strategy_name,
+                        custom_name = EXCLUDED.custom_name,
                         results = EXCLUDED.results,
                         metrics = EXCLUDED.metrics,
                         equity_curve = EXCLUDED.equity_curve,
@@ -86,6 +87,7 @@ class BacktestStorage:
                     'result_id': result_id,
                     'symbol': symbol,
                     'strategy_name': strategy_name,
+                    'custom_name': None,  # Custom name set separately via update
                     'results': results_json,
                     'metrics': metrics_json,
                     'equity_curve': equity_curve_json,
@@ -97,33 +99,12 @@ class BacktestStorage:
             import traceback
             logger.error(f"[BacktestStorage] Traceback: {traceback.format_exc()}")
             raise
-            insert_query = text("""
-                INSERT INTO backtest_results 
-                (result_id, symbol, strategy_name, results, metrics, equity_curve, trades)
-                VALUES (:result_id, :symbol, :strategy_name, :results, :metrics, :equity_curve, :trades)
-                ON CONFLICT (result_id) DO UPDATE SET
-                    symbol = EXCLUDED.symbol,
-                    strategy_name = EXCLUDED.strategy_name,
-                    results = EXCLUDED.results,
-                    metrics = EXCLUDED.metrics,
-                    equity_curve = EXCLUDED.equity_curve,
-                    trades = EXCLUDED.trades
-            """)
-            conn.execute(insert_query, {
-                'result_id': result_id,
-                'symbol': symbol,
-                'strategy_name': strategy_name,
-                'results': json.dumps(results),
-                'metrics': json.dumps(metrics),
-                'equity_curve': json.dumps(equity_curve),
-                'trades': json.dumps(trades),
-            })
     
     def get_result(self, result_id: str) -> Optional[Dict[str, Any]]:
         """Get backtest result by ID"""
         with self.engine.connect() as conn:
             query = text("""
-                SELECT result_id, symbol, strategy_name, created_at, results, metrics, equity_curve, trades
+                SELECT result_id, symbol, strategy_name, custom_name, created_at, results, metrics, equity_curve, trades
                 FROM backtest_results
                 WHERE result_id = :result_id
             """)
@@ -141,7 +122,8 @@ class BacktestStorage:
                     'result_id': row[0],
                     'symbol': row[1],
                     'strategy_name': row[2],
-                    'created_at': row[3].isoformat() if row[3] else None,
+                    'custom_name': row[3],
+                    'created_at': row[4].isoformat() if row[4] else None,
                     'results': results_data,
                     'metrics': metrics_data,
                     'equity_curve': equity_curve_data,
@@ -199,7 +181,7 @@ class BacktestStorage:
             
             # Build query
             query = text(f"""
-                SELECT result_id, symbol, strategy_name, created_at, metrics
+                SELECT result_id, symbol, strategy_name, custom_name, created_at, metrics
                 FROM backtest_results
                 WHERE {where_clause}
                 ORDER BY {sort_by} {sort_order}
@@ -212,7 +194,8 @@ class BacktestStorage:
             results = []
             for row in rows:
                 # JSONB columns are already parsed as dict by PostgreSQL
-                metrics_data = row[4] if row[4] else {}
+                # Row structure: result_id, symbol, strategy_name, custom_name, created_at, metrics
+                metrics_data = row[5] if row[5] else {}
                 
                 # Apply date filtering on metrics if specified
                 if start_date and metrics_data.get('start_date'):
@@ -226,7 +209,8 @@ class BacktestStorage:
                     'result_id': row[0],
                     'symbol': row[1],
                     'strategy_name': row[2],
-                    'created_at': row[3].isoformat() if row[3] else None,
+                    'custom_name': row[3],
+                    'created_at': row[4].isoformat() if row[4] else None,
                     'metrics': metrics_data,
                 })
             
@@ -268,3 +252,29 @@ class BacktestStorage:
             
             result = conn.execute(query, params)
             return result.scalar() or 0
+    
+    def update_custom_name(self, result_id: str, custom_name: Optional[str]) -> bool:
+        """Update custom name for a backtest result"""
+        logger.info(f"[BacktestStorage] Updating custom name for result_id={result_id} to '{custom_name}'")
+        try:
+            with self.engine.begin() as conn:
+                query = text("""
+                    UPDATE backtest_results 
+                    SET custom_name = :custom_name
+                    WHERE result_id = :result_id
+                """)
+                result = conn.execute(query, {
+                    'result_id': result_id,
+                    'custom_name': custom_name,
+                })
+                updated = result.rowcount > 0
+                if updated:
+                    logger.info(f"[BacktestStorage] ✅ Successfully updated custom name for {result_id}")
+                else:
+                    logger.warning(f"[BacktestStorage] ⚠️ No result found with id {result_id}")
+                return updated
+        except Exception as e:
+            logger.error(f"[BacktestStorage] ❌ Failed to update custom name for {result_id}: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"[BacktestStorage] Traceback: {traceback.format_exc()}")
+            raise

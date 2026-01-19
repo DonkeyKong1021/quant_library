@@ -43,6 +43,11 @@ export const backtestService = {
     return response.data
   },
 
+  async updateBacktestResult(resultId, updates) {
+    const response = await api.patch(`/api/backtest/results/${resultId}`, updates)
+    return response.data
+  },
+
   async deleteBacktestResult(resultId) {
     const response = await api.delete(`/api/backtest/results/${resultId}`)
     return response.data

@@ -51,6 +51,7 @@ from api.models.schemas import (
     WalkForwardRequest,
     WalkForwardResponse,
     WalkForwardWindow,
+    BacktestUpdateRequest,
 )
 
 router = APIRouter()
@@ -836,6 +837,7 @@ async def list_backtest_results(
                     result_id=result_id,
                     symbol=data['symbol'],
                     strategy_name='unknown',
+                    custom_name=None,
                     created_at=None,
                     metrics=data.get('metrics', {})
                 )
@@ -844,6 +846,26 @@ async def list_backtest_results(
             return BacktestResultsListResponse(results=results, total=len(backtest_results))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing results: {str(e)}")
+
+
+@router.patch("/results/{result_id}")
+async def update_backtest_result(result_id: str, request: BacktestUpdateRequest):
+    """Update backtest result (e.g., custom name)"""
+    try:
+        if USE_DATABASE and backtest_storage:
+            logger.info(f"[Backtest] Updating backtest result {result_id}: custom_name={request.custom_name}")
+            updated = backtest_storage.update_custom_name(result_id, request.custom_name)
+            if not updated:
+                raise HTTPException(status_code=404, detail="Backtest result not found")
+            return {"message": "Backtest result updated successfully"}
+        else:
+            # In-memory fallback - custom_name not stored in memory, so skip
+            raise HTTPException(status_code=400, detail="Update not supported with in-memory storage")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Backtest] Error updating result {result_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error updating result: {str(e)}")
 
 
 @router.delete("/results/{result_id}")

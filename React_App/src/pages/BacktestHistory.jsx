@@ -33,6 +33,9 @@ import {
   Delete as DeleteIcon,
   Visibility as VisibilityIcon,
   CompareArrows as CompareIcon,
+  Edit as EditIcon,
+  Check as CheckIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material'
 import StrategyComparison from '../components/StrategyComparison'
 import MetricsTable from '../components/MetricsTable'
@@ -69,6 +72,11 @@ export default function BacktestHistory() {
   const [previewResult, setPreviewResult] = useState(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState(null)
+  
+  // Strategy name editing
+  const [editingStrategyName, setEditingStrategyName] = useState(null)
+  const [editStrategyNameValue, setEditStrategyNameValue] = useState('')
+  const [updatingStrategyName, setUpdatingStrategyName] = useState(false)
 
   const fetchResults = async () => {
     try {
@@ -158,6 +166,44 @@ export default function BacktestHistory() {
   const handleViewFullDetails = (resultId) => {
     setPreviewDialogOpen(false)
     navigate(`/backtest?resultId=${resultId}`)
+  }
+  
+  const handleStartEditCustomName = (resultId, currentName) => {
+    setEditingStrategyName(resultId)
+    setEditStrategyNameValue(currentName || '')
+  }
+  
+  const handleCancelEditCustomName = () => {
+    setEditingStrategyName(null)
+    setEditStrategyNameValue('')
+  }
+  
+  const handleSaveCustomName = async (resultId) => {
+    if (updatingStrategyName) return
+    
+    try {
+      setUpdatingStrategyName(true)
+      await backtestService.updateBacktestResult(resultId, {
+        custom_name: editStrategyNameValue.trim() || null,
+      })
+      
+      // Update local state
+      setResults(prevResults =>
+        prevResults.map(result =>
+          result.result_id === resultId
+            ? { ...result, custom_name: editStrategyNameValue.trim() || null }
+            : result
+        )
+      )
+      
+      setEditingStrategyName(null)
+      setEditStrategyNameValue('')
+    } catch (err) {
+      console.error('Error updating custom name:', err)
+      setError(err.message || 'Failed to update custom name')
+    } finally {
+      setUpdatingStrategyName(false)
+    }
   }
 
   const formatMetric = (value, type = 'number') => {
@@ -275,6 +321,7 @@ export default function BacktestHistory() {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>Symbol</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Strategy</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600 }}>Total Return</TableCell>
@@ -288,13 +335,13 @@ export default function BacktestHistory() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : results.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
                     <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
                       No backtest results found
                     </Typography>
@@ -313,7 +360,76 @@ export default function BacktestHistory() {
                       <TableCell>
                         <Chip label={result.symbol} size="small" sx={{ fontWeight: 500 }} />
                       </TableCell>
-                      <TableCell>{result.strategy_name || 'Unknown'}</TableCell>
+                      <TableCell>
+                        {editingStrategyName === result.result_id ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <TextField
+                              value={editStrategyNameValue}
+                              onChange={(e) => setEditStrategyNameValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleSaveCustomName(result.result_id)
+                                } else if (e.key === 'Escape') {
+                                  handleCancelEditCustomName()
+                                }
+                              }}
+                              size="small"
+                              placeholder="Enter custom name"
+                              sx={{ 
+                                minWidth: 150,
+                                '& .MuiInputBase-input': {
+                                  py: 0.5,
+                                  fontSize: '0.875rem',
+                                }
+                              }}
+                              autoFocus
+                              disabled={updatingStrategyName}
+                            />
+                            <IconButton
+                              size="small"
+                              onClick={() => handleSaveCustomName(result.result_id)}
+                              disabled={updatingStrategyName}
+                              sx={{ color: 'success.main' }}
+                              title="Save"
+                            >
+                              <CheckIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={handleCancelEditCustomName}
+                              disabled={updatingStrategyName}
+                              sx={{ color: 'text.secondary' }}
+                              title="Cancel"
+                            >
+                              <CloseIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ) : (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography variant="body2" sx={{ fontStyle: result.custom_name ? 'normal' : 'italic', color: result.custom_name ? 'text.primary' : 'text.secondary' }}>
+                              {result.custom_name || 'Untitled'}
+                            </Typography>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleStartEditCustomName(result.result_id, result.custom_name)}
+                              sx={{ 
+                                opacity: 0.6,
+                                '&:hover': { opacity: 1 },
+                                p: 0.5,
+                                ml: 0.5,
+                              }}
+                              title="Edit custom name"
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {result.strategy_name || 'Unknown'}
+                        </Typography>
+                      </TableCell>
                       <TableCell>{formatDate(result.created_at)}</TableCell>
                       <TableCell align="right">
                         <Typography

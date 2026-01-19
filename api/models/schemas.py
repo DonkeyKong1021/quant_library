@@ -104,7 +104,8 @@ class RecentSymbolsRequest(BaseModel):
 class BacktestResultSummary(BaseModel):
     result_id: str
     symbol: str
-    strategy_name: Optional[str] = None
+    strategy_name: Optional[str] = None  # Strategy type (e.g., 'moving_average', 'custom_strategy')
+    custom_name: Optional[str] = None  # User-defined custom name
     created_at: Optional[str] = None
     metrics: Dict[str, Any] = {}
 
@@ -112,6 +113,10 @@ class BacktestResultSummary(BaseModel):
 class BacktestResultsListResponse(BaseModel):
     results: List[BacktestResultSummary]
     total: int
+
+
+class BacktestUpdateRequest(BaseModel):
+    custom_name: Optional[str] = Field(None, description="User-defined custom name for the backtest")
 
 
 class BacktestCompareRequest(BaseModel):
