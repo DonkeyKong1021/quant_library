@@ -35,6 +35,8 @@ import {
   CompareArrows as CompareIcon,
 } from '@mui/icons-material'
 import StrategyComparison from '../components/StrategyComparison'
+import MetricsTable from '../components/MetricsTable'
+import Chart from '../components/Chart'
 import { backtestService } from '../services/backtestService'
 
 export default function BacktestHistory() {
@@ -61,6 +63,12 @@ export default function BacktestHistory() {
   // Comparison
   const [selectedForComparison, setSelectedForComparison] = useState([])
   const [comparisonDialogOpen, setComparisonDialogOpen] = useState(false)
+  
+  // Preview dialog
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
+  const [previewResult, setPreviewResult] = useState(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState(null)
 
   const fetchResults = async () => {
     try {
@@ -130,7 +138,25 @@ export default function BacktestHistory() {
     }
   }
 
-  const handleViewResult = (resultId) => {
+  const handleViewResult = async (resultId) => {
+    setPreviewDialogOpen(true)
+    setPreviewLoading(true)
+    setPreviewError(null)
+    setPreviewResult(null)
+    
+    try {
+      const result = await backtestService.getBacktestResults(resultId)
+      setPreviewResult(result)
+    } catch (err) {
+      console.error('Error fetching backtest result:', err)
+      setPreviewError(err.message || 'Failed to load backtest result')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+  
+  const handleViewFullDetails = (resultId) => {
+    setPreviewDialogOpen(false)
     navigate(`/backtest?resultId=${resultId}`)
   }
 
@@ -402,6 +428,80 @@ export default function BacktestHistory() {
           <Button onClick={() => setComparisonDialogOpen(false)} sx={{ fontSize: '0.9375rem', fontWeight: 500 }}>
             Close
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog
+        open={previewDialogOpen}
+        onClose={() => setPreviewDialogOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            maxHeight: '90vh',
+          }
+        }}
+      >
+        <DialogTitle>
+          Backtest Preview
+          {previewResult && (
+            <Box sx={{ mt: 1 }}>
+              <Chip label={previewResult.symbol} size="small" sx={{ mr: 1, fontWeight: 500 }} />
+              <Typography variant="body2" color="text.secondary" component="span">
+                {previewResult.strategy_name || 'Unknown Strategy'}
+              </Typography>
+            </Box>
+          )}
+        </DialogTitle>
+        <DialogContent>
+          {previewLoading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+              <CircularProgress />
+            </Box>
+          )}
+          
+          {previewError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {previewError}
+            </Alert>
+          )}
+          
+          {previewResult && !previewLoading && (
+            <Box>
+              <MetricsTable results={previewResult} />
+              
+              {previewResult.equity_curve && previewResult.equity_curve.length > 0 && (
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                    Equity Curve
+                  </Typography>
+                  <Chart 
+                    data={previewResult.equity_curve} 
+                    type="equity"
+                    benchmarkData={previewResult.benchmark_equity_curve}
+                  />
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button 
+            onClick={() => setPreviewDialogOpen(false)} 
+            sx={{ fontSize: '0.9375rem', fontWeight: 500 }}
+          >
+            Close
+          </Button>
+          {previewResult && (
+            <Button
+              variant="contained"
+              onClick={() => handleViewFullDetails(previewResult.result_id)}
+              sx={{ fontSize: '0.9375rem', fontWeight: 500 }}
+            >
+              View Full Details
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Container>

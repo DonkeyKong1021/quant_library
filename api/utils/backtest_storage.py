@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import json
+import logging
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -47,11 +51,52 @@ class BacktestStorage:
             trades: Trade history
             metadata: Optional metadata (start_date, end_date, initial_capital, commission, slippage)
         """
+        logger.info(f"[BacktestStorage] Saving backtest result: result_id={result_id}, symbol={symbol}, strategy={strategy_name}")
+        
         # Store metadata in metrics if provided
         if metadata:
             metrics = {**metrics, **metadata}
+            logger.debug(f"[BacktestStorage] Metadata merged into metrics: {list(metadata.keys())}")
         
-        with self.engine.connect() as conn:
+        try:
+            with self.engine.begin() as conn:
+                logger.debug(f"[BacktestStorage] Database connection established, preparing insert")
+                insert_query = text("""
+                    INSERT INTO backtest_results 
+                    (result_id, symbol, strategy_name, results, metrics, equity_curve, trades)
+                    VALUES (:result_id, :symbol, :strategy_name, :results, :metrics, :equity_curve, :trades)
+                    ON CONFLICT (result_id) DO UPDATE SET
+                        symbol = EXCLUDED.symbol,
+                        strategy_name = EXCLUDED.strategy_name,
+                        results = EXCLUDED.results,
+                        metrics = EXCLUDED.metrics,
+                        equity_curve = EXCLUDED.equity_curve,
+                        trades = EXCLUDED.trades
+                """)
+                
+                # Prepare data for insertion
+                results_json = json.dumps(results)
+                metrics_json = json.dumps(metrics)
+                equity_curve_json = json.dumps(equity_curve)
+                trades_json = json.dumps(trades)
+                
+                logger.debug(f"[BacktestStorage] Data sizes - results: {len(results_json)} bytes, metrics: {len(metrics_json)} bytes, equity_curve: {len(equity_curve_json)} bytes, trades: {len(trades_json)} bytes")
+                
+                conn.execute(insert_query, {
+                    'result_id': result_id,
+                    'symbol': symbol,
+                    'strategy_name': strategy_name,
+                    'results': results_json,
+                    'metrics': metrics_json,
+                    'equity_curve': equity_curve_json,
+                    'trades': trades_json,
+                })
+                logger.info(f"[BacktestStorage] ✅ Successfully saved backtest result {result_id} to database")
+        except Exception as e:
+            logger.error(f"[BacktestStorage] ❌ Failed to save backtest result {result_id}: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"[BacktestStorage] Traceback: {traceback.format_exc()}")
+            raise
             insert_query = text("""
                 INSERT INTO backtest_results 
                 (result_id, symbol, strategy_name, results, metrics, equity_curve, trades)
@@ -73,7 +118,6 @@ class BacktestStorage:
                 'equity_curve': json.dumps(equity_curve),
                 'trades': json.dumps(trades),
             })
-            conn.commit()
     
     def get_result(self, result_id: str) -> Optional[Dict[str, Any]]:
         """Get backtest result by ID"""
@@ -87,15 +131,21 @@ class BacktestStorage:
             row = result.fetchone()
             
             if row:
+                # JSONB columns are already parsed as dict/list by PostgreSQL
+                results_data = row[4] if row[4] else {}
+                metrics_data = row[5] if row[5] else {}
+                equity_curve_data = row[6] if row[6] else []
+                trades_data = row[7] if row[7] else []
+                
                 return {
                     'result_id': row[0],
                     'symbol': row[1],
                     'strategy_name': row[2],
                     'created_at': row[3].isoformat() if row[3] else None,
-                    'results': json.loads(row[4]) if row[4] else {},
-                    'metrics': json.loads(row[5]) if row[5] else {},
-                    'equity_curve': json.loads(row[6]) if row[6] else [],
-                    'trades': json.loads(row[7]) if row[7] else [],
+                    'results': results_data,
+                    'metrics': metrics_data,
+                    'equity_curve': equity_curve_data,
+                    'trades': trades_data,
                 }
             return None
     
@@ -161,7 +211,8 @@ class BacktestStorage:
             
             results = []
             for row in rows:
-                metrics_data = json.loads(row[4]) if row[4] else {}
+                # JSONB columns are already parsed as dict by PostgreSQL
+                metrics_data = row[4] if row[4] else {}
                 
                 # Apply date filtering on metrics if specified
                 if start_date and metrics_data.get('start_date'):
@@ -183,10 +234,9 @@ class BacktestStorage:
     
     def delete_result(self, result_id: str) -> bool:
         """Delete backtest result"""
-        with self.engine.connect() as conn:
+        with self.engine.begin() as conn:
             query = text("DELETE FROM backtest_results WHERE result_id = :result_id")
             result = conn.execute(query, {'result_id': result_id})
-            conn.commit()
             return result.rowcount > 0
     
     def count_results(

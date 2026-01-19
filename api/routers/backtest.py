@@ -11,6 +11,10 @@ from typing import Dict, Any, Optional, List
 import uuid
 from itertools import product
 from scipy.optimize import minimize
+import logging
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -57,11 +61,15 @@ backtest_results = {}
 # Try to use database storage, fall back to in-memory if not available
 try:
     from api.utils.backtest_storage import BacktestStorage
+    logger.info("[Backtest] Initializing BacktestStorage...")
     backtest_storage = BacktestStorage()
     USE_DATABASE = True
+    logger.info("[Backtest] ✅ BacktestStorage initialized successfully, using database storage")
 except Exception as e:
-    print(f"Warning: Could not initialize database storage for backtest results: {e}")
-    print("Falling back to in-memory storage")
+    logger.warning(f"[Backtest] ⚠️ Could not initialize database storage for backtest results: {type(e).__name__}: {e}")
+    logger.warning(f"[Backtest] Falling back to in-memory storage")
+    import traceback
+    logger.warning(f"[Backtest] Traceback: {traceback.format_exc()}")
     backtest_storage = None
     USE_DATABASE = False
 
@@ -298,10 +306,18 @@ def dict_list_to_dataframe(data: list) -> pd.DataFrame:
 
 
 def serialize_dataframe(df: pd.DataFrame) -> list:
-    """Serialize DataFrame to list of dictionaries"""
+    """Serialize DataFrame to list of dictionaries, converting datetime columns to strings"""
     df = df.reset_index()
-    if 'Date' in df.columns or df.index.name == 'Date':
-        df['Date'] = df['Date'].astype(str)
+    
+    # Convert any datetime columns (including index) to strings
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            df[col] = df[col].astype(str)
+    
+    # Also handle index name if it's datetime
+    if df.index.name and pd.api.types.is_datetime64_any_dtype(df.index):
+        df.index = df.index.astype(str)
+    
     return df.to_dict('records')
 
 
@@ -666,8 +682,12 @@ async def run_backtest(request: BacktestRequest):
         }
         
         # Store results
+        logger.info(f"[Backtest] Preparing to save backtest result: result_id={result_id}, symbol={request.symbol}, strategy={strategy_name}")
+        logger.info(f"[Backtest] USE_DATABASE={USE_DATABASE}, backtest_storage={backtest_storage is not None}")
+        
         if USE_DATABASE and backtest_storage:
             try:
+                logger.info(f"[Backtest] Attempting to save to database...")
                 backtest_storage.save_result(
                     result_id=result_id,
                     symbol=request.symbol,
@@ -678,21 +698,28 @@ async def run_backtest(request: BacktestRequest):
                     trades=trades_serialized,
                     metadata=metadata,
                 )
+                logger.info(f"[Backtest] ✅ Backtest result {result_id} saved to database successfully")
             except Exception as e:
                 # Fallback to in-memory if database fails
-                print(f"Warning: Failed to save to database, using in-memory: {e}")
+                logger.warning(f"[Backtest] ⚠️ Failed to save to database, using in-memory storage: {type(e).__name__}: {e}")
+                logger.warning(f"[Backtest] Error details: {str(e)}")
+                import traceback
+                logger.warning(f"[Backtest] Traceback: {traceback.format_exc()}")
                 backtest_results[result_id] = {
                     'symbol': request.symbol,
                     'results': results_serialized,
                     'metrics': metrics,
                 }
+                logger.info(f"[Backtest] Saved to in-memory storage as fallback")
         else:
             # In-memory storage (fallback)
+            logger.info(f"[Backtest] Using in-memory storage (database not available)")
             backtest_results[result_id] = {
                 'symbol': request.symbol,
                 'results': results_serialized,
                 'metrics': metrics,
             }
+            logger.info(f"[Backtest] Saved to in-memory storage")
         
         return BacktestResponse(
             result_id=result_id,
