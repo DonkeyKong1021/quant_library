@@ -17,7 +17,8 @@ src_dir = project_root / "src"
 sys.path.insert(0, str(src_dir))
 sys.path.insert(0, str(project_root))
 
-from quantlib.data import YahooFinanceFetcher, DataStore
+from quantlib.data import DataStore
+from quantlib.data.fetcher_registry import get_registry
 import time
 
 
@@ -68,7 +69,7 @@ def calculate_date_range(years: int = 10) -> tuple:
 
 
 def fetch_and_save_ticker(
-    fetcher: YahooFinanceFetcher,
+    fetcher,  # DataFetcher instance (not typed to avoid circular import)
     store: DataStore,
     ticker: str,
     start_date: str,
@@ -79,7 +80,7 @@ def fetch_and_save_ticker(
     Fetch and save data for a single ticker.
     
     Args:
-        fetcher: YahooFinanceFetcher instance
+        fetcher: DataFetcher instance
         store: DataStore instance
         ticker: Stock symbol
         start_date: Start date (YYYY-MM-DD)
@@ -176,6 +177,12 @@ def main():
         action='store_true',
         help='Skip tickers that already exist in the database'
     )
+    parser.add_argument(
+        '--data-source',
+        type=str,
+        default=None,
+        help='Data source to use (yahoo, alpha_vantage, polygon, iex_cloud). Defaults to DEFAULT_DATA_SOURCE env var or yahoo'
+    )
     
     args = parser.parse_args()
     
@@ -206,7 +213,10 @@ def main():
     # Initialize fetcher and store
     print(f"\n3. Initializing data fetcher and database connection...")
     try:
-        fetcher = YahooFinanceFetcher()
+        registry = get_registry()
+        fetcher = registry.create(source=args.data_source)
+        source_name = args.data_source or "default"
+        print(f"   Using data source: {source_name}")
         store = DataStore(database_url=args.database_url)
         print("   ✅ Initialized successfully")
     except Exception as e:

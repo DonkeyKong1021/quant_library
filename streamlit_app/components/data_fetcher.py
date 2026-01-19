@@ -3,7 +3,9 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-from quantlib.data import YahooFinanceFetcher, DataStore
+from quantlib.data import DataStore
+from quantlib.data.fetcher_registry import get_registry
+from quantlib.data.config import get_available_sources, get_default_data_source
 from streamlit_app.utils.streamlit_helpers import (
     get_database_symbols,
     get_symbol_metadata,
@@ -353,7 +355,13 @@ def _render_quick_fetch_bar(db_connected):
                     st.session_state.recent_symbols = st.session_state.recent_symbols[:10]
                 # Get cache setting from session state (set by checkbox)
                 use_cache_val = st.session_state.get("quick_fetch_cache", True)
-                return _handle_fetch(selected_symbol, start_date, end_date, use_cache_val, force_refresh, db_connected)
+                # Get data source from session state (use default if not set)
+                available_sources = get_available_sources()
+                default_source = get_default_data_source()
+                if 'data_source_quick' not in st.session_state:
+                    st.session_state.data_source_quick = default_source
+                data_source = st.session_state.data_source_quick
+                return _handle_fetch(selected_symbol, start_date, end_date, use_cache_val, force_refresh, db_connected, data_source)
     
     return None
 
@@ -458,7 +466,13 @@ def _render_modal_data_fetcher(db_connected):
             
             with compact_cols[4]:
                 if st.button("🔍 Fetch", type="primary", use_container_width=True, key="fetch_btn_modal"):
-                    return _handle_fetch(final_symbol, start_date, end_date, use_cache, force_refresh, db_connected)
+                    # Get data source from session state (use default if not set)
+                    available_sources = get_available_sources()
+                    default_source = get_default_data_source()
+                    if 'data_source_modal' not in st.session_state:
+                        st.session_state.data_source_modal = default_source
+                    data_source = st.session_state.data_source_modal
+                    return _handle_fetch(final_symbol, start_date, end_date, use_cache, force_refresh, db_connected, data_source)
             
             # Return current data if available
             return st.session_state.data if st.session_state.data is not None else None
@@ -721,7 +735,13 @@ def _render_data_fetcher_controls(db_connected, compact=False):
         
         with compact_cols[3]:
             if st.button("🔍 Fetch", type="primary", use_container_width=True, key="fetch_btn_explorer"):
-                return _handle_fetch(symbol, start_date, end_date, use_cache, force_refresh, db_connected)
+                # Get data source from session state (use default if not set)
+                available_sources = get_available_sources()
+                default_source = get_default_data_source()
+                if 'data_source_explorer' not in st.session_state:
+                    st.session_state.data_source_explorer = default_source
+                data_source = st.session_state.data_source_explorer
+                return _handle_fetch(symbol, start_date, end_date, use_cache, force_refresh, db_connected, data_source)
     else:
         # Regular layout for standalone mode
         col_date_opts = st.columns([2, 1], gap="medium")
@@ -750,10 +770,23 @@ def _render_data_fetcher_controls(db_connected, compact=False):
             st.markdown("**⚙️ Options**")
             use_cache = st.checkbox("Use cache", value=True, help="Use cached data if available", key="use_cache_backtest")
             force_refresh = st.checkbox("Force refresh", value=False, help="Force refresh from source", key="force_refresh_backtest")
+            
+            # Data source selection
+            available_sources = get_available_sources()
+            default_source = get_default_data_source()
+            if 'data_source_backtest' not in st.session_state:
+                st.session_state.data_source_backtest = default_source
+            data_source = st.selectbox(
+                "Data source",
+                options=available_sources,
+                index=available_sources.index(st.session_state.data_source_backtest) if st.session_state.data_source_backtest in available_sources else 0,
+                help="Select data source for fetching",
+                key="data_source_backtest"
+            )
         
         # Fetch button
         if st.button("🔍 Fetch Data", type="primary", use_container_width=True, key="fetch_btn_backtest"):
-            return _handle_fetch(symbol, start_date, end_date, use_cache, force_refresh, db_connected)
+            return _handle_fetch(symbol, start_date, end_date, use_cache, force_refresh, db_connected, data_source)
     
     # Show current status (compact)
     if st.session_state.data is not None and st.session_state.selected_symbol == symbol.upper():
@@ -762,7 +795,7 @@ def _render_data_fetcher_controls(db_connected, compact=False):
     return st.session_state.data if st.session_state.data is not None else None
 
 
-def _handle_fetch(symbol, start_date, end_date, use_cache, force_refresh, db_connected):
+def _handle_fetch(symbol, start_date, end_date, use_cache, force_refresh, db_connected, data_source=None):
     """Handle data fetching logic"""
     if not symbol:
         st.error("Please select a symbol")
@@ -776,7 +809,8 @@ def _handle_fetch(symbol, start_date, end_date, use_cache, force_refresh, db_con
     
     with st.spinner(f"Fetching {symbol}..."):
         try:
-            fetcher = YahooFinanceFetcher()
+            registry = get_registry()
+            fetcher = registry.create(source=data_source)
             store = DataStore()
             start_str = start_date.strftime('%Y-%m-%d')
             end_str = end_date.strftime('%Y-%m-%d')

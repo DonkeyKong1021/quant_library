@@ -39,14 +39,21 @@ export const dataService = {
   },
 
   // Data fetching endpoints
-  async fetchData({ symbol, startDate, endDate, useCache = true, forceRefresh = false }) {
-    const response = await api.post('/api/data/fetch', {
+  async fetchData({ symbol, startDate, endDate, useCache = true, forceRefresh = false, dataSource = null }) {
+    const requestBody = {
       symbol,
       start_date: startDate,
       end_date: endDate,
       use_cache: useCache,
       force_refresh: forceRefresh,
-    })
+    }
+    
+    // Only include data_source if it's provided
+    if (dataSource) {
+      requestBody.data_source = dataSource
+    }
+    
+    const response = await api.post('/api/data/fetch', requestBody)
     return response.data
   },
 

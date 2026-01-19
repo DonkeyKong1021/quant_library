@@ -30,6 +30,7 @@ class DataFetchRequest(BaseModel):
     use_cache: bool = Field(True, description="Use cached data if available")
     force_refresh: bool = Field(False, description="Force refresh from source (updates only the requested date range)")
     force_refresh_all: bool = Field(False, description="Force refresh ALL data for symbol (deletes all existing data before inserting new data)")
+    data_source: Optional[str] = Field(None, description="Data source (yahoo, alpha_vantage, polygon, iex_cloud). Defaults to DEFAULT_DATA_SOURCE env var or 'yahoo'")
 
 
 class DataFetchResponse(BaseModel):

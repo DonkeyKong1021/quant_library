@@ -16,7 +16,8 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from quantlib.backtesting import BacktestEngine
-from quantlib.data import YahooFinanceFetcher, DataStore
+from quantlib.data import DataStore
+from quantlib.data.fetcher_registry import get_registry
 from quantlib.indicators import sma, rsi, bollinger_bands, macd
 from quantlib.risk.metrics import (
     sharpe_ratio,
@@ -363,7 +364,15 @@ async def run_backtest(request: BacktestRequest):
                 
                 # Fetch benchmark data
                 store = DataStore()
-                fetcher = YahooFinanceFetcher()
+                
+                # Create fetcher using registry (use default source for benchmark)
+                try:
+                    registry = get_registry()
+                    fetcher = registry.create()
+                except ValueError as e:
+                    # Fall back to Yahoo Finance if registry fails
+                    from quantlib.data import YahooFinanceFetcher
+                    fetcher = YahooFinanceFetcher()
                 
                 benchmark_data = None
                 try:
@@ -372,7 +381,11 @@ async def run_backtest(request: BacktestRequest):
                     pass
                 
                 if benchmark_data is None or benchmark_data.empty:
-                    benchmark_data = fetcher.fetch_ohlcv(benchmark_symbol, start=start_date, end=end_date)
+                    benchmark_data = fetcher.fetch_ohlcv(
+                        benchmark_symbol,
+                        start=start_date.strftime('%Y-%m-%d') if hasattr(start_date, 'strftime') else str(start_date),
+                        end=end_date.strftime('%Y-%m-%d') if hasattr(end_date, 'strftime') else str(end_date)
+                    )
                     if benchmark_data is not None and not benchmark_data.empty:
                         try:
                             store.save(benchmark_symbol, benchmark_data)

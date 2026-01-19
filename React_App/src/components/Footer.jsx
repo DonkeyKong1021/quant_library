@@ -1,5 +1,12 @@
 import { Box, Container, Typography, Link, Grid } from '@mui/material'
 
+// Get API base URL for API docs link
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_DOCS_URL = `${API_BASE_URL}/docs`
+
+// GitHub repository URL
+const GITHUB_REPO = 'https://github.com/DonkeyKong1021/quant_library'
+
 export default function Footer() {
   return (
     <Box
@@ -27,13 +34,34 @@ export default function Footer() {
               Resources
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              <Link href="#" color="text.secondary" underline="hover" sx={{ fontSize: '0.875rem' }}>
+              <Link
+                href={`${GITHUB_REPO}#readme`}
+                target="_blank"
+                rel="noopener noreferrer"
+                color="text.secondary"
+                underline="hover"
+                sx={{ fontSize: '0.875rem' }}
+              >
                 Documentation
               </Link>
-              <Link href="#" color="text.secondary" underline="hover" sx={{ fontSize: '0.875rem' }}>
+              <Link
+                href={API_DOCS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                color="text.secondary"
+                underline="hover"
+                sx={{ fontSize: '0.875rem' }}
+              >
                 API Reference
               </Link>
-              <Link href="#" color="text.secondary" underline="hover" sx={{ fontSize: '0.875rem' }}>
+              <Link
+                href={`${GITHUB_REPO}/tree/main/examples`}
+                target="_blank"
+                rel="noopener noreferrer"
+                color="text.secondary"
+                underline="hover"
+                sx={{ fontSize: '0.875rem' }}
+              >
                 Examples
               </Link>
             </Box>
@@ -43,13 +71,34 @@ export default function Footer() {
               Support
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              <Link href="#" color="text.secondary" underline="hover" sx={{ fontSize: '0.875rem' }}>
+              <Link
+                href={`${GITHUB_REPO}/blob/main/CONTRIBUTING.md`}
+                target="_blank"
+                rel="noopener noreferrer"
+                color="text.secondary"
+                underline="hover"
+                sx={{ fontSize: '0.875rem' }}
+              >
                 Help Center
               </Link>
-              <Link href="#" color="text.secondary" underline="hover" sx={{ fontSize: '0.875rem' }}>
+              <Link
+                href={`${GITHUB_REPO}/issues`}
+                target="_blank"
+                rel="noopener noreferrer"
+                color="text.secondary"
+                underline="hover"
+                sx={{ fontSize: '0.875rem' }}
+              >
                 Contact
               </Link>
-              <Link href="#" color="text.secondary" underline="hover" sx={{ fontSize: '0.875rem' }}>
+              <Link
+                href={GITHUB_REPO}
+                target="_blank"
+                rel="noopener noreferrer"
+                color="text.secondary"
+                underline="hover"
+                sx={{ fontSize: '0.875rem' }}
+              >
                 GitHub
               </Link>
             </Box>
@@ -59,10 +108,24 @@ export default function Footer() {
               Legal
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              <Link href="#" color="text.secondary" underline="hover" sx={{ fontSize: '0.875rem' }}>
+              <Link
+                href={`${GITHUB_REPO}/blob/main/PRIVACY_POLICY.md`}
+                target="_blank"
+                rel="noopener noreferrer"
+                color="text.secondary"
+                underline="hover"
+                sx={{ fontSize: '0.875rem' }}
+              >
                 Privacy Policy
               </Link>
-              <Link href="#" color="text.secondary" underline="hover" sx={{ fontSize: '0.875rem' }}>
+              <Link
+                href={`${GITHUB_REPO}/blob/main/TERMS_OF_SERVICE.md`}
+                target="_blank"
+                rel="noopener noreferrer"
+                color="text.secondary"
+                underline="hover"
+                sx={{ fontSize: '0.875rem' }}
+              >
                 Terms of Service
               </Link>
             </Box>

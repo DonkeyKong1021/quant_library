@@ -23,6 +23,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { dataService } from '../services/dataService'
 import { recentSymbolsStorage } from '../utils/localStorage'
+import { dataSourceStorage } from '../utils/dataSourceStorage'
 import SearchIcon from '@mui/icons-material/Search'
 import CachedIcon from '@mui/icons-material/Cached'
 import RefreshIcon from '@mui/icons-material/Refresh'
@@ -47,9 +48,23 @@ export default function DataFetcher({ onDataFetched }) {
   const [error, setError] = useState(null)
   const [useCache, setUseCache] = useState(true)
   const [forceRefresh, setForceRefresh] = useState(false)
+  const [dataSource, setDataSource] = useState(() => dataSourceStorage.get())
   const [fetchedData, setFetchedData] = useState(null)
   const [dataCached, setDataCached] = useState(false)
   const [selectedPreset, setSelectedPreset] = useState('')
+  
+  // Available data sources
+  const availableDataSources = [
+    { value: 'yahoo', label: 'Yahoo Finance' },
+    { value: 'alpha_vantage', label: 'Alpha Vantage' },
+    { value: 'polygon', label: 'Polygon.io' },
+    { value: 'iex_cloud', label: 'IEX Cloud (deprecated)' },
+  ]
+  
+  // Update localStorage when data source changes
+  useEffect(() => {
+    dataSourceStorage.set(dataSource)
+  }, [dataSource])
 
   // Fetch all symbols with metadata
   const { data: allSymbolsData, isLoading: symbolsLoading } = useQuery({
@@ -200,6 +215,7 @@ export default function DataFetcher({ onDataFetched }) {
         endDate: endStr,
         useCache: useCache,
         forceRefresh: forceRefresh,
+        dataSource: dataSource !== 'yahoo' ? dataSource : null, // Only send if not default
       })
 
       if (response.data && response.data.length > 0) {
@@ -441,9 +457,9 @@ export default function DataFetcher({ onDataFetched }) {
             </FormControl>
           </Grid>
 
-          {/* Cache Options */}
+          {/* Cache Options and Data Source */}
           <Grid item xs={12} md={8}>
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
               <FormControlLabel
                 control={
                   <Checkbox checked={useCache} onChange={(e) => setUseCache(e.target.checked)} />
@@ -460,6 +476,20 @@ export default function DataFetcher({ onDataFetched }) {
                 }
                 label="Force Refresh"
               />
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Data Source</InputLabel>
+                <Select
+                  value={dataSource}
+                  label="Data Source"
+                  onChange={(e) => setDataSource(e.target.value)}
+                >
+                  {availableDataSources.map((source) => (
+                    <MenuItem key={source.value} value={source.value}>
+                      {source.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
               {symbolMetadata && symbolMetadata.available_date_range && (
                 <Typography variant="caption" color="text.secondary">
                   Available: {new Date(symbolMetadata.available_date_range.start).toLocaleDateString()} -{' '}

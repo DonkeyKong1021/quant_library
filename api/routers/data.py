@@ -14,7 +14,8 @@ project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from quantlib.data import YahooFinanceFetcher, DataStore
+from quantlib.data import DataStore
+from quantlib.data.fetcher_registry import get_registry
 from quantlib.utils.datetime import normalize_date_range
 from api.models.schemas import (
     DataFetchRequest,
@@ -198,7 +199,13 @@ async def fetch_data(request: DataFetchRequest):
             raise HTTPException(status_code=400, detail=str(e))
 
         store = DataStore()
-        fetcher = YahooFinanceFetcher()
+        
+        # Create fetcher using registry
+        try:
+            registry = get_registry()
+            fetcher = registry.create(source=request.data_source)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
         # Track as recent symbol
         global recent_symbols

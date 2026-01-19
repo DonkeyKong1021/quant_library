@@ -37,6 +37,7 @@ dependencies = [
     "matplotlib>=3.5.0",
     "yfinance>=0.2.0",
     "scipy>=1.9.0",
+    "requests>=2.28.0",
 ]
 
 [project.optional-dependencies]
@@ -58,10 +59,10 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/quant_library"
-Documentation = "https://github.com/yourusername/quant_library#readme"
-Repository = "https://github.com/yourusername/quant_library"
-Issues = "https://github.com/yourusername/quant_library/issues"
+Homepage = "https://github.com/DonkeyKong1021/quant_library"
+Documentation = "https://github.com/DonkeyKong1021/quant_library#readme"
+Repository = "https://github.com/DonkeyKong1021/quant_library"
+Issues = "https://github.com/DonkeyKong1021/quant_library/issues"
 
 [tool.setuptools]
 packages = ["quantlib"]

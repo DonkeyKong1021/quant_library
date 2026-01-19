@@ -114,14 +114,15 @@ See the [React App README](React_App/README.md) for detailed setup instructions.
 See [Quick Start Guide](docs/QUICK_START.md) for detailed examples.
 
 ```python
-from quantlib.data import YahooFinanceFetcher
+from quantlib.data.fetcher_registry import get_registry
 from quantlib.strategies import Strategy
 from quantlib.indicators import sma
 from quantlib.backtesting import BacktestEngine
 from quantlib.visualization import create_tear_sheet
 
-# Fetch data
-fetcher = YahooFinanceFetcher()
+# Fetch data (uses default source or specify: 'yahoo', 'alpha_vantage', 'polygon')
+registry = get_registry()
+fetcher = registry.create(source='yahoo')  # or omit to use default
 data = fetcher.fetch_ohlcv('AAPL', start='2020-01-01', end='2023-01-01')
 
 # Define strategy
@@ -159,7 +160,7 @@ create_tear_sheet(results, save_path='backtest_results.png')
 
 ## Data and Database
 
-**Important**: This repository does **not** include market data. The database starts empty and must be populated by fetching data from external sources (primarily Yahoo Finance).
+**Important**: This repository does **not** include market data. The database starts empty and must be populated by fetching data from external sources. QuantLib supports multiple data sources including Yahoo Finance (default), Alpha Vantage, and Polygon.io. See [Data Setup Guide](docs/DATA_SETUP.md) for configuration details.
 
 - **`tickers.json`**: A reference file containing stock symbols organized by sector (metadata only, not market data). This is used for symbol suggestions and bulk fetching scripts. You can modify or replace it with your own symbol list.
 
@@ -169,7 +170,9 @@ See the [Data Setup Guide](docs/DATA_SETUP.md) for complete instructions on:
 - Fetching and storing market data
 - Managing your database
 
-## Database Configuration
+## Configuration
+
+### Database Configuration
 
 The library uses PostgreSQL for storing market data. Configure the database connection using the `DATABASE_URL` environment variable:
 
@@ -189,6 +192,27 @@ from quantlib.data import DataStore
 store = DataStore(database_url="postgresql://user:pass@host:port/db")
 ```
 
+### Data Source Configuration
+
+QuantLib supports multiple data sources for fetching market data:
+
+- **Yahoo Finance** (default): Free, no API key required
+- **Alpha Vantage**: Free tier available, requires API key
+- **Polygon.io**: Free tier available, requires API key
+
+Configure your data source using environment variables (see `.env.example`):
+
+```bash
+# Set default data source
+export DEFAULT_DATA_SOURCE=yahoo  # Options: yahoo, alpha_vantage, polygon
+
+# Set API keys for paid/free-tier sources
+export ALPHA_VANTAGE_API_KEY=your_key_here
+export POLYGON_API_KEY=your_key_here
+```
+
+You can also specify the source per request in code, API calls, or UI. See the [Data Setup Guide](docs/DATA_SETUP.md) for detailed information about each data source and configuration options.
+
 ### Database Setup
 
 1. **Initialize schema** (creates empty tables and indexes):
@@ -205,7 +229,7 @@ store = DataStore(database_url="postgresql://user:pass@host:port/db")
    - **Bulk fetch**: Use `python scripts/fetch_all_tickers.py` to fetch data for all symbols in `tickers.json`
    - **Custom data**: Import your own data using the migration script or programmatically
 
-   **Note**: No market data is included in this repository. All data must be fetched from external sources (primarily Yahoo Finance).
+   **Note**: No market data is included in this repository. All data must be fetched from external sources. QuantLib supports multiple data sources (Yahoo Finance, Alpha Vantage, Polygon.io). See [Data Setup Guide](docs/DATA_SETUP.md) for details.
 
 3. **Migrate existing data** (if you have parquet files from previous versions):
    ```bash

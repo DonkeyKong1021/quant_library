@@ -162,26 +162,121 @@ If you have market data in other formats (CSV, Parquet, etc.), you can:
 
 ## Data Sources
 
-### Primary Source: Yahoo Finance
+QuantLib supports multiple data sources for fetching market data. You can configure your default source and select different sources per request.
 
-QuantLib uses the `yfinance` library to fetch data from Yahoo Finance. This is:
-- Free for most use cases
-- No API key required
-- Historical data available
-- Real-time data available (with limitations)
+### Available Data Sources
 
-**Limitations:**
-- Rate limiting applies (be respectful with bulk fetches)
-- Some symbols may be unavailable or delisted
-- Data quality varies by symbol
-- Terms of service apply
+#### Yahoo Finance (Default)
+- **Free**: No API key required
+- **Historical data**: Available
+- **Real-time data**: Available (with limitations)
+- **Rate limits**: Be respectful with bulk fetches
+- **Limitations**: Some symbols may be unavailable or delisted, data quality varies
+
+#### Alpha Vantage
+- **Free tier**: 5 calls/minute, 500 calls/day
+- **API key required**: Get one at https://www.alphavantage.co/support/#api-key
+- **Historical data**: Full history available
+- **Intervals**: Daily only (`1d`)
+- **Setup**: Set `ALPHA_VANTAGE_API_KEY` environment variable
+
+#### Polygon.io
+- **Free tier**: Available (see https://polygon.io/pricing)
+- **API key required**: Get one at https://polygon.io/dashboard/signup
+- **Historical data**: Available from September 2003
+- **Intervals**: Supports daily, hourly, and minute-level data
+- **Setup**: Set `POLYGON_API_KEY` environment variable
+
+#### IEX Cloud (Deprecated)
+- **Note**: IEX Cloud was shut down on August 31, 2024
+- This fetcher is included for historical reference only and will not work
+
+### Configuring Data Sources
+
+#### Environment Variables
+
+Add to your `.env` file (copy from `.env.example`):
+
+```bash
+# Default data source (yahoo, alpha_vantage, polygon, iex_cloud)
+DEFAULT_DATA_SOURCE=yahoo
+
+# Alpha Vantage API key
+ALPHA_VANTAGE_API_KEY=your_api_key_here
+
+# Polygon.io API key
+POLYGON_API_KEY=your_api_key_here
+
+# IEX Cloud API key (deprecated - for reference only)
+IEX_CLOUD_API_KEY=your_api_key_here
+```
+
+#### Using in Code
+
+```python
+from quantlib.data.fetcher_registry import get_registry
+
+# Create fetcher with default source (from DEFAULT_DATA_SOURCE env var or 'yahoo')
+registry = get_registry()
+fetcher = registry.create()
+
+# Or specify a source explicitly
+fetcher = registry.create(source='alpha_vantage')
+fetcher = registry.create(source='polygon')
+fetcher = registry.create(source='yahoo')  # Default
+
+# Use the fetcher
+data = fetcher.fetch_ohlcv('AAPL', start='2020-01-01', end='2023-12-31')
+```
+
+#### Using via API
+
+Add `data_source` parameter to fetch requests:
+
+```bash
+curl -X POST http://localhost:8000/api/data/fetch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbol": "AAPL",
+    "start_date": "2020-01-01",
+    "end_date": "2023-12-31",
+    "data_source": "alpha_vantage"
+  }'
+```
+
+#### Using in UI
+
+- **Streamlit**: Data source selection is available in the data fetcher component
+- **React**: Use the "Data Source" dropdown in the data fetcher component
+
+#### Using in Scripts
+
+```bash
+# Use default source
+python scripts/fetch_all_tickers.py
+
+# Specify a source
+python scripts/fetch_all_tickers.py --data-source alpha_vantage
+python scripts/fetch_all_tickers.py --data-source polygon
+```
+
+### Source Comparison
+
+| Source | API Key Required | Free Tier | Rate Limits | Historical Data | Intervals |
+|--------|-----------------|-----------|-------------|-----------------|-----------|
+| Yahoo Finance | No | Yes | Informal | Extensive | All |
+| Alpha Vantage | Yes | 500 calls/day | 5 calls/min | Full history | Daily only |
+| Polygon.io | Yes | Varies by plan | Varies by plan | Since 2003 | Multiple |
+| IEX Cloud | Yes | Deprecated | N/A | N/A | N/A |
 
 ### Custom Data Sources
 
 You can extend QuantLib to use other data sources by:
-1. Creating a custom fetcher class (similar to `YahooFinanceFetcher`)
-2. Implementing the same interface
+1. Creating a custom fetcher class that implements `DataFetcher` interface
+2. Registering it with the `FetcherRegistry`
 3. Using it with `DataStore` for storage
+
+See `src/quantlib/data/fetchers.py` for examples of fetcher implementations.
 
 ## Managing Your Data
 
