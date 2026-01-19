@@ -1,0 +1,70 @@
+[project]
+name = "quantlib"
+version = "0.1.0"
+description = "Comprehensive quantitative trading library for backtesting"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    {name = "QuantLib Contributors"}
+]
+license = {text = "MIT"}
+keywords = [
+    "quantitative finance",
+    "trading",
+    "backtesting",
+    "algorithmic trading",
+    "technical analysis",
+    "portfolio management",
+    "risk metrics",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "pandas>=1.5.0",
+    "numpy>=1.21.0",
+    "matplotlib>=3.5.0",
+    "yfinance>=0.2.0",
+    "scipy>=1.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "ruff>=0.1.0",
+]
+interactive = [
+    "plotly>=5.0.0",
+]
+all = [
+    "quantlib[dev,interactive]",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/quant_library"
+Documentation = "https://github.com/yourusername/quant_library#readme"
+Repository = "https://github.com/yourusername/quant_library"
+Issues = "https://github.com/yourusername/quant_library/issues"
+
+[tool.setuptools]
+packages = ["quantlib"]
+
+[tool.setuptools.package-dir]
+"" = "src"
