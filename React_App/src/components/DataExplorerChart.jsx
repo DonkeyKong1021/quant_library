@@ -1,7 +1,7 @@
 import { useMemo, memo, useCallback } from 'react'
 import { Box } from '@mui/material'
 import Plot from 'react-plotly.js'
-import { getOptimalChartType, prepareChartData } from '../utils/chartUtils'
+import { getOptimalChartType, prepareChartData, adaptiveSample } from '../utils/chartUtils'
 
 // Simple client-side indicator calculations
 const calculateSMA = (prices, window) => {
@@ -458,16 +458,67 @@ const calculateROC = (prices, window) => {
   return result
 }
 
-const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, indicators, showVolume }) {
-  const plotData = useMemo(() => {
-    if (!data || data.length === 0) return null
+const calculateHeikinAshi = (opens, highs, lows, closes) => {
+  const haClose = []
+  const haOpen = []
+  const haHigh = []
+  const haLow = []
+  
+  for (let i = 0; i < closes.length; i++) {
+    if (i === 0) {
+      // First period: use regular OHLC
+      haOpen.push((opens[i] + closes[i]) / 2)
+      haClose.push((opens[i] + highs[i] + lows[i] + closes[i]) / 4)
+      haHigh.push(highs[i])
+      haLow.push(lows[i])
+    } else {
+      // HA Close = (Open + High + Low + Close) / 4
+      haClose.push((opens[i] + highs[i] + lows[i] + closes[i]) / 4)
+      
+      // HA Open = (Previous HA Open + Previous HA Close) / 2
+      haOpen.push((haOpen[i - 1] + haClose[i - 1]) / 2)
+      
+      // HA High = Max(High, HA Open, HA Close)
+      haHigh.push(Math.max(highs[i], haOpen[i], haClose[i]))
+      
+      // HA Low = Min(Low, HA Open, HA Close)
+      haLow.push(Math.min(lows[i], haOpen[i], haClose[i]))
+    }
+  }
+  
+  return { open: haOpen, high: haHigh, low: haLow, close: haClose }
+}
 
-    const dates = data.map((d) => new Date(d.Date))
-    const closes = data.map((d) => d.Close)
-    const opens = data.map((d) => d.Open)
-    const highs = data.map((d) => d.High)
-    const lows = data.map((d) => d.Low)
-    const volumes = data.map((d) => d.Volume || 0)
+const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, indicators, showVolume }) {
+  // Sample data if needed for performance (max 2000 points)
+  const sampledData = useMemo(() => {
+    if (!data || data.length <= 2000) return data
+    
+    // Use time-based decimation for OHLCV data (preserves all fields)
+    const step = Math.ceil(data.length / 2000)
+    const sampled = []
+    
+    for (let i = 0; i < data.length; i += step) {
+      sampled.push(data[i])
+    }
+    
+    // Always include the last point
+    if (sampled.length > 0 && sampled[sampled.length - 1] !== data[data.length - 1]) {
+      sampled.push(data[data.length - 1])
+    }
+    
+    return sampled
+  }, [data])
+
+  const plotData = useMemo(() => {
+    if (!sampledData || sampledData.length === 0) return null
+
+    const dates = sampledData.map((d) => new Date(d.Date))
+    const closes = sampledData.map((d) => d.Close)
+    const opens = sampledData.map((d) => d.Open)
+    const highs = sampledData.map((d) => d.High)
+    const lows = sampledData.map((d) => d.Low)
+    const volumes = sampledData.map((d) => d.Volume || 0)
 
     const traces = []
 
@@ -483,7 +534,45 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
         line: { width: 2, color: 'black' },
         hovertemplate: 'Date: %{x}<br>Close: $%{y:.2f}<extra></extra>',
       })
+    } else if (chartType === 'area') {
+      traces.push({
+        x: dates,
+        y: closes,
+        type: priceChartType,
+        mode: 'lines',
+        name: 'Close',
+        fill: 'tozeroy',
+        fillcolor: 'rgba(25, 118, 210, 0.2)',
+        line: { width: 2, color: '#1976d2' },
+        hovertemplate: 'Date: %{x}<br>Close: $%{y:.2f}<extra></extra>',
+      })
+    } else if (chartType === 'heikinashi') {
+      const ha = calculateHeikinAshi(opens, highs, lows, closes)
+      traces.push({
+        x: dates,
+        open: ha.open,
+        high: ha.high,
+        low: ha.low,
+        close: ha.close,
+        type: 'candlestick',
+        name: 'Heikin Ashi',
+        increasing: { line: { color: '#26a69a' } },
+        decreasing: { line: { color: '#ef5350' } },
+      })
+    } else if (chartType === 'ohlc') {
+      traces.push({
+        x: dates,
+        open: opens,
+        high: highs,
+        low: lows,
+        close: closes,
+        type: 'ohlc',
+        name: 'Price',
+        increasing: { line: { color: '#26a69a' } },
+        decreasing: { line: { color: '#ef5350' } },
+      })
     } else {
+      // Default to candlestick
       traces.push({
         x: dates,
         open: opens,
@@ -763,22 +852,22 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
     }
 
     return { priceTraces: traces, volumes, dates, closes, highs, lows }
-  }, [data, chartType, indicators])
+  }, [sampledData, chartType, indicators])
 
   const rsiData = useMemo(() => {
-    if (!data || !indicators.rsi || data.length === 0) return null
-    const dates = data.map((d) => new Date(d.Date))
-    const closes = data.map((d) => d.Close)
+    if (!sampledData || !indicators.rsi || sampledData.length === 0) return null
+    const dates = sampledData.map((d) => new Date(d.Date))
+    const closes = sampledData.map((d) => d.Close)
     const rsiValues = calculateRSI(closes, indicators.rsi.window)
     return { dates, values: rsiValues }
-  }, [data, indicators.rsi])
+  }, [sampledData, indicators.rsi])
 
   const stochasticData = useMemo(() => {
-    if (!data || !indicators.stochastic || data.length === 0) return null
-    const dates = data.map((d) => new Date(d.Date))
-    const highs = data.map((d) => d.High)
-    const lows = data.map((d) => d.Low)
-    const closes = data.map((d) => d.Close)
+    if (!sampledData || !indicators.stochastic || sampledData.length === 0) return null
+    const dates = sampledData.map((d) => new Date(d.Date))
+    const highs = sampledData.map((d) => d.High)
+    const lows = sampledData.map((d) => d.Low)
+    const closes = sampledData.map((d) => d.Close)
     const stochResult = calculateStochastic(
       highs,
       lows,
@@ -787,41 +876,41 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
       indicators.stochastic.d_window || 3
     )
     return { dates, k: stochResult.k, d: stochResult.d }
-  }, [data, indicators.stochastic])
+  }, [sampledData, indicators.stochastic])
 
   const adxData = useMemo(() => {
-    if (!data || !indicators.adx || data.length === 0) return null
-    const dates = data.map((d) => new Date(d.Date))
-    const highs = data.map((d) => d.High)
-    const lows = data.map((d) => d.Low)
-    const closes = data.map((d) => d.Close)
+    if (!sampledData || !indicators.adx || sampledData.length === 0) return null
+    const dates = sampledData.map((d) => new Date(d.Date))
+    const highs = sampledData.map((d) => d.High)
+    const lows = sampledData.map((d) => d.Low)
+    const closes = sampledData.map((d) => d.Close)
     const adxValues = calculateADX(highs, lows, closes, indicators.adx.window || 14)
     return { dates, values: adxValues }
-  }, [data, indicators.adx])
+  }, [sampledData, indicators.adx])
 
   const obvData = useMemo(() => {
-    if (!data || !indicators.obv || data.length === 0) return null
-    const dates = data.map((d) => new Date(d.Date))
-    const closes = data.map((d) => d.Close)
-    const volumes = data.map((d) => d.Volume || 0)
+    if (!sampledData || !indicators.obv || sampledData.length === 0) return null
+    const dates = sampledData.map((d) => new Date(d.Date))
+    const closes = sampledData.map((d) => d.Close)
+    const volumes = sampledData.map((d) => d.Volume || 0)
     const obvValues = calculateOBV(closes, volumes)
     return { dates, values: obvValues }
-  }, [data, indicators.obv])
+  }, [sampledData, indicators.obv])
 
   const volumeSmaData = useMemo(() => {
-    if (!data || !indicators.volumeSma || data.length === 0) return null
-    const dates = data.map((d) => new Date(d.Date))
-    const volumes = data.map((d) => d.Volume || 0)
+    if (!sampledData || !indicators.volumeSma || sampledData.length === 0) return null
+    const dates = sampledData.map((d) => new Date(d.Date))
+    const volumes = sampledData.map((d) => d.Volume || 0)
     const volumeSmaValues = calculateVolumeSMA(volumes, indicators.volumeSma.window || 20)
     return { dates, values: volumeSmaValues }
-  }, [data, indicators.volumeSma])
+  }, [sampledData, indicators.volumeSma])
 
   const volumeData = useMemo(() => {
-    if (!data || !showVolume || data.length === 0) return null
-    const dates = data.map((d) => new Date(d.Date))
-    const volumes = data.map((d) => d.Volume || 0)
+    if (!sampledData || !showVolume || sampledData.length === 0) return null
+    const dates = sampledData.map((d) => new Date(d.Date))
+    const volumes = sampledData.map((d) => d.Volume || 0)
     return { dates, values: volumes }
-  }, [data, showVolume])
+  }, [sampledData, showVolume])
 
   const priceLayout = useMemo(() => {
     const hasATR = indicators.atr
@@ -990,7 +1079,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
             data={[{
               x: rsiData.dates,
               y: rsiData.values,
-              type: 'scatter',
+              type: getOptimalChartType('scatter', rsiData.dates.length),
               mode: 'lines',
               name: `RSI(${indicators.rsi.window})`,
               line: { width: 2, color: 'purple' },
@@ -1010,7 +1099,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
               {
                 x: stochasticData.dates,
                 y: stochasticData.k,
-                type: 'scatter',
+                type: getOptimalChartType('scatter', stochasticData.dates.length),
                 mode: 'lines',
                 name: '%K',
                 line: { width: 2, color: 'blue' },
@@ -1018,7 +1107,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
               {
                 x: stochasticData.dates,
                 y: stochasticData.d,
-                type: 'scatter',
+                type: getOptimalChartType('scatter', stochasticData.dates.length),
                 mode: 'lines',
                 name: '%D',
                 line: { width: 2, color: 'red' },
@@ -1037,7 +1126,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
             data={[{
               x: adxData.dates,
               y: adxData.values,
-              type: 'scatter',
+              type: getOptimalChartType('scatter', adxData.dates.length),
               mode: 'lines',
               name: `ADX(${indicators.adx.window})`,
               line: { width: 2, color: 'orange' },
@@ -1055,7 +1144,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
             data={[{
               x: obvData.dates,
               y: obvData.values,
-              type: 'scatter',
+              type: getOptimalChartType('scatter', obvData.dates.length),
               mode: 'lines',
               name: 'OBV',
               line: { width: 2, color: 'green' },
@@ -1073,7 +1162,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
             data={[{
               x: williamsRData.dates,
               y: williamsRData.values,
-              type: 'scatter',
+              type: getOptimalChartType('scatter', williamsRData.dates.length),
               mode: 'lines',
               name: `Williams %R(${indicators.williamsR.window})`,
               line: { width: 2, color: '#ab47bc' },
@@ -1092,7 +1181,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
             data={[{
               x: cciData.dates,
               y: cciData.values,
-              type: 'scatter',
+              type: getOptimalChartType('scatter', cciData.dates.length),
               mode: 'lines',
               name: `CCI(${indicators.cci.window})`,
               line: { width: 2, color: '#5c6bc0' },
@@ -1110,7 +1199,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
             data={[{
               x: rocData.dates,
               y: rocData.values,
-              type: 'scatter',
+              type: getOptimalChartType('scatter', rocData.dates.length),
               mode: 'lines',
               name: `ROC(${indicators.roc.window})`,
               line: { width: 2, color: '#66bb6a' },
@@ -1136,7 +1225,7 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
               ...(volumeSmaData ? [{
                 x: volumeSmaData.dates,
                 y: volumeSmaData.values,
-                type: 'scatter',
+                type: getOptimalChartType('scatter', volumeSmaData.dates.length),
                 mode: 'lines',
                 name: `Volume SMA(${indicators.volumeSma.window})`,
                 line: { width: 2, color: 'red' },

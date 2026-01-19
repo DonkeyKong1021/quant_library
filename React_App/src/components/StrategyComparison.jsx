@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Box,
   Paper,
@@ -22,6 +22,7 @@ import {
 } from '@mui/material'
 import Plotly from 'react-plotly.js'
 import { backtestService } from '../services/backtestService'
+import { prepareChartData, getOptimalChartType } from '../utils/chartUtils'
 
 // Import plotly.js for type definitions
 import 'plotly.js'
@@ -82,57 +83,72 @@ export default function StrategyComparison({ resultIds = [], onClose }) {
     return labels[metricName] || metricName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  const renderEquityCurveChart = () => {
-    if (!comparison || !comparison.equity_curves) return null
+  const equityCurveTraces = useMemo(() => {
+    if (!comparison || !comparison.equity_curves) return []
 
-    const traces = comparison.result_ids.map((resultId, index) => {
+    return comparison.result_ids.map((resultId, index) => {
       const equityCurve = comparison.equity_curves[resultId] || []
       
       if (equityCurve.length === 0) return null
 
-      const x = equityCurve.map((point) => point.timestamp || point.date || point.x)
-      const y = equityCurve.map((point) => point.equity || point.y || point.value)
+      // Prepare data with sampling and optimization
+      const formattedData = equityCurve.map((point) => ({
+        Date: point.timestamp || point.date || point.x,
+        equity: point.equity || point.y || point.value
+      }))
+      
+      const chartData = prepareChartData(formattedData, 2000, true)
+      const chartType = getOptimalChartType('scatter', chartData.x.length)
 
       return {
-        x,
-        y,
-        type: 'scatter',
+        x: chartData.x,
+        y: chartData.y,
+        type: chartType,
         mode: 'lines',
         name: `Result ${resultId.slice(0, 8)}...`,
         line: {
           width: 2,
         },
+        hovertemplate: 'Date: %{x}<br>Equity: $%{y:,.2f}<extra></extra>',
       }
     }).filter(Boolean)
+  }, [comparison])
 
-    if (traces.length === 0) return null
+  const plotlyLayout = useMemo(() => ({
+    title: 'Equity Curves Comparison',
+    xaxis: { title: 'Date' },
+    yaxis: { title: 'Equity ($)' },
+    hovermode: 'x unified',
+    showlegend: true,
+    margin: { l: 60, r: 20, t: 60, b: 60 },
+    template: 'plotly_white',
+  }), [])
+
+  const plotlyConfig = useMemo(() => ({
+    responsive: true,
+    doubleClick: 'reset+autosize',
+    displayModeBar: true,
+    displaylogo: false,
+    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+    toImageButtonOptions: {
+      format: 'png',
+      width: 1200,
+      height: 600,
+      scale: 2,
+    },
+  }), [])
+
+  const renderEquityCurveChart = () => {
+    if (!equityCurveTraces || equityCurveTraces.length === 0) return null
 
     return (
       <Box sx={{ height: 400, width: '100%' }}>
         <Plotly
-          data={traces}
-          layout={{
-            title: 'Equity Curves Comparison',
-            xaxis: { title: 'Date' },
-            yaxis: { title: 'Equity ($)' },
-            hovermode: 'closest',
-            showlegend: true,
-            margin: { l: 60, r: 20, t: 60, b: 60 },
-          }}
-          config={{
-            responsive: true,
-            doubleClick: 'reset+autosize',
-            displayModeBar: true,
-            displaylogo: false,
-            modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-            toImageButtonOptions: {
-              format: 'png',
-              width: 1200,
-              height: 600,
-              scale: 2,
-            },
-          }}
+          data={equityCurveTraces}
+          layout={plotlyLayout}
+          config={plotlyConfig}
           style={{ width: '100%', height: '100%' }}
+          useResizeHandler={true}
         />
       </Box>
     )

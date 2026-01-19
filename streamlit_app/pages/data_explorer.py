@@ -49,6 +49,45 @@ if 'Close' not in data.columns:
 
 close_prices = data['Close']
 
+def calculate_heikin_ashi(data_df):
+    """Calculate Heikin Ashi values from OHLC data"""
+    ha_close = []
+    ha_open = []
+    ha_high = []
+    ha_low = []
+    
+    opens = data_df['Open'].values
+    highs = data_df['High'].values
+    lows = data_df['Low'].values
+    closes = data_df['Close'].values
+    
+    for i in range(len(closes)):
+        if i == 0:
+            # First period: use regular OHLC
+            ha_open.append((opens[i] + closes[i]) / 2)
+            ha_close.append((opens[i] + highs[i] + lows[i] + closes[i]) / 4)
+            ha_high.append(highs[i])
+            ha_low.append(lows[i])
+        else:
+            # HA Close = (Open + High + Low + Close) / 4
+            ha_close.append((opens[i] + highs[i] + lows[i] + closes[i]) / 4)
+            
+            # HA Open = (Previous HA Open + Previous HA Close) / 2
+            ha_open.append((ha_open[i - 1] + ha_close[i - 1]) / 2)
+            
+            # HA High = Max(High, HA Open, HA Close)
+            ha_high.append(max(highs[i], ha_open[i], ha_close[i]))
+            
+            # HA Low = Min(Low, HA Open, HA Close)
+            ha_low.append(min(lows[i], ha_open[i], ha_close[i]))
+    
+    return pd.DataFrame({
+        'Open': ha_open,
+        'High': ha_high,
+        'Low': ha_low,
+        'Close': ha_close
+    }, index=data_df.index)
+
 # Quick Overview Section
 st.markdown("### 📊 Quick Overview")
 
@@ -105,7 +144,7 @@ with main_tabs[0]:
         
         chart_type = st.selectbox(
             "Chart Type",
-            ["Line Chart", "Candlestick Chart"],
+            ["Line Chart", "Area Chart", "Candlestick Chart", "Heikin Ashi", "OHLC Bars"],
             help="Chart visualization type"
         )
         
@@ -182,7 +221,40 @@ with main_tabs[0]:
                 name='Close',
                 line=dict(width=2, color='black')
             )
-        else:  # Candlestick
+        elif chart_type == "Area Chart":
+            trace = go.Scatter(
+                x=data.index,
+                y=close_prices.values,
+                mode='lines',
+                name='Close',
+                fill='tozeroy',
+                fillcolor='rgba(25, 118, 210, 0.2)',
+                line=dict(width=2, color='#1976d2')
+            )
+        elif chart_type == "Heikin Ashi":
+            ha_data = calculate_heikin_ashi(data)
+            trace = go.Candlestick(
+                x=data.index,
+                open=ha_data['Open'],
+                high=ha_data['High'],
+                low=ha_data['Low'],
+                close=ha_data['Close'],
+                name='Heikin Ashi',
+                increasing_line_color='#26a69a',
+                decreasing_line_color='#ef5350'
+            )
+        elif chart_type == "OHLC Bars":
+            trace = go.Ohlc(
+                x=data.index,
+                open=data['Open'],
+                high=data['High'],
+                low=data['Low'],
+                close=data['Close'],
+                name='Price',
+                increasing_line_color='#26a69a',
+                decreasing_line_color='#ef5350'
+            )
+        else:  # Candlestick (default)
             trace = go.Candlestick(
                 x=data.index,
                 open=data['Open'],

@@ -27,6 +27,7 @@ import {
   DialogActions,
   Alert,
   CircularProgress,
+  Checkbox,
 } from '@mui/material'
 import {
   Delete as DeleteIcon,
@@ -56,6 +57,10 @@ export default function BacktestHistory() {
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [resultToDelete, setResultToDelete] = useState(null)
+  
+  // Comparison
+  const [selectedForComparison, setSelectedForComparison] = useState([])
+  const [comparisonDialogOpen, setComparisonDialogOpen] = useState(false)
 
   const fetchResults = async () => {
     try {
@@ -250,32 +255,20 @@ export default function BacktestHistory() {
                 <TableCell align="right" sx={{ fontWeight: 600 }}>Sharpe Ratio</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600 }}>Max Drawdown</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 600 }}>Trades</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 600 }}>
-                        <Checkbox
-                          size="small"
-                          checked={selectedForComparison.includes(result.result_id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedForComparison([...selectedForComparison, result.result_id])
-                            } else {
-                              setSelectedForComparison(selectedForComparison.filter(id => id !== result.result_id))
-                            }
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 600 }}>Actions</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 600 }}>Select</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 600 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : results.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                     <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
                       No backtest results found
                     </Typography>

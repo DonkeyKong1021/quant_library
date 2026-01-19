@@ -11,15 +11,11 @@ import {
   Checkbox,
   TextField,
   Button,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
 } from '@mui/material'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import DownloadIcon from '@mui/icons-material/Download'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import SpeedIcon from '@mui/icons-material/Speed'
@@ -60,6 +56,7 @@ export default function DataExplorer() {
     volumeProfile: null,
   })
   const [tabValue, setTabValue] = useState(0)
+  const [indicatorTabValue, setIndicatorTabValue] = useState(0)
   
   // Filtering state
   const [filteredData, setFilteredData] = useState(null)
@@ -125,121 +122,149 @@ export default function DataExplorer() {
 
       {data && (
         <>
-          <Grid container spacing={3}>
-            {/* Chart Configuration */}
-            <Grid item xs={12} md={3}>
-              <Paper sx={{ p: 3, elevation: 1 }}>
-                <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
-                  Chart Configuration
-                </Typography>
-
-                <Box sx={{ mb: 2 }}>
-                  <TextField
-                    select
-                    label="Chart Type"
-                    value={chartType}
-                    onChange={(e) => setChartType(e.target.value)}
-                    fullWidth
-                    SelectProps={{ native: true }}
-                    size="small"
-                  >
-                    <option value="line">Line Chart</option>
-                    <option value="candlestick">Candlestick Chart</option>
-                  </TextField>
-                </Box>
-
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={showVolume}
-                      onChange={(e) => setShowVolume(e.target.checked)}
-                    />
-                  }
-                  label="Show Volume"
-                  sx={{ mb: 2 }}
-                />
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
-                    Technical Indicators
-                  </Typography>
-                  <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                    <InputLabel>Preset Combinations</InputLabel>
-                    <Select
-                      value=""
-                      label="Preset Combinations"
-                      onChange={(e) => {
-                        const preset = e.target.value
-                        if (preset === '') return
-                        
-                        // Reset all indicators
-                        setIndicators({
-                          sma: null, ema: null, macd: null, adx: null, ichimoku: null, vwap: null,
-                          rsi: null, stochastic: null, williamsR: null, cci: null, roc: null,
-                          bollingerBands: null, keltnerChannels: null, donchianChannels: null, atr: null,
-                          obv: null, volumeSma: null, volumeProfile: null,
-                        })
-                        
-                        if (preset === 'trend_following') {
-                          setIndicators({
-                            sma: { window: 50 }, ema: { window: 20 }, macd: { fast: 12, slow: 26, signal: 9 },
-                            adx: { window: 14 },
-                          })
-                        } else if (preset === 'mean_reversion') {
-                          setIndicators({
-                            bollingerBands: { window: 20, numStd: 2.0 }, rsi: { window: 14 },
-                            stochastic: { k_window: 14, d_window: 3 },
-                          })
-                        } else if (preset === 'momentum') {
-                          setIndicators({
-                            rsi: { window: 14 }, macd: { fast: 12, slow: 26, signal: 9 },
-                            roc: { window: 12 }, williamsR: { window: 14 },
-                          })
-                        } else if (preset === 'volatility') {
-                          setIndicators({
-                            bollingerBands: { window: 20, numStd: 2.0 },
-                            keltnerChannels: { window: 20, multiplier: 2.0 },
-                            atr: { window: 14 },
-                          })
-                        } else if (preset === 'volume_analysis') {
-                          setIndicators({
-                            vwap: {}, obv: {}, volumeSma: { window: 20 },
-                          })
-                        } else if (preset === 'complete') {
-                          setIndicators({
-                            sma: { window: 50 }, ema: { window: 20 }, macd: { fast: 12, slow: 26, signal: 9 },
-                            adx: { window: 14 }, rsi: { window: 14 }, stochastic: { k_window: 14, d_window: 3 },
-                            bollingerBands: { window: 20, numStd: 2.0 }, atr: { window: 14 },
-                            obv: {}, volumeSma: { window: 20 },
-                          })
-                        }
-                      }}
+          {/* Chart Configuration */}
+          <Box sx={{ mb: 1.5 }}>
+            <Paper sx={{ p: 1.5, elevation: 1 }}>
+                <Grid container spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
+                  <Grid item xs="auto">
+                    <Typography variant="h6" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      Chart Configuration
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={3} md={2}>
+                    <TextField
+                      select
+                      label="Chart Type"
+                      value={chartType}
+                      onChange={(e) => setChartType(e.target.value)}
+                      fullWidth
+                      SelectProps={{ native: true }}
+                      size="small"
                     >
-                      <MenuItem value="">
-                        <em>None</em>
-                      </MenuItem>
-                      <MenuItem value="trend_following">Trend Following</MenuItem>
-                      <MenuItem value="mean_reversion">Mean Reversion</MenuItem>
-                      <MenuItem value="momentum">Momentum</MenuItem>
-                      <MenuItem value="volatility">Volatility</MenuItem>
-                      <MenuItem value="volume_analysis">Volume Analysis</MenuItem>
-                      <MenuItem value="complete">Complete Analysis</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Box>
+                      <option value="line">Line Chart</option>
+                      <option value="area">Area Chart</option>
+                      <option value="candlestick">Candlestick Chart</option>
+                      <option value="heikinashi">Heikin Ashi</option>
+                      <option value="ohlc">OHLC Bars</option>
+                    </TextField>
+                  </Grid>
+                  <Grid item xs="auto">
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={showVolume}
+                          onChange={(e) => setShowVolume(e.target.checked)}
+                          size="small"
+                        />
+                      }
+                      label="Show Volume"
+                    />
+                  </Grid>
+                  <Grid item xs="auto" sx={{ ml: { xs: 0, sm: 'auto' } }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, whiteSpace: 'nowrap', mt: 0.5 }}>
+                      Technical Indicators:
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={4} md={3}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Preset Combinations</InputLabel>
+                      <Select
+                        value=""
+                        label="Preset Combinations"
+                        onChange={(e) => {
+                          const preset = e.target.value
+                          if (preset === '') return
+                          
+                          // Reset all indicators
+                          setIndicators({
+                            sma: null, ema: null, macd: null, adx: null, ichimoku: null, vwap: null,
+                            rsi: null, stochastic: null, williamsR: null, cci: null, roc: null,
+                            bollingerBands: null, keltnerChannels: null, donchianChannels: null, atr: null,
+                            obv: null, volumeSma: null, volumeProfile: null,
+                          })
+                          
+                          if (preset === 'trend_following') {
+                            setIndicators({
+                              sma: { window: 50 }, ema: { window: 20 }, macd: { fast: 12, slow: 26, signal: 9 },
+                              adx: { window: 14 },
+                            })
+                          } else if (preset === 'mean_reversion') {
+                            setIndicators({
+                              bollingerBands: { window: 20, numStd: 2.0 }, rsi: { window: 14 },
+                              stochastic: { k_window: 14, d_window: 3 },
+                            })
+                          } else if (preset === 'momentum') {
+                            setIndicators({
+                              rsi: { window: 14 }, macd: { fast: 12, slow: 26, signal: 9 },
+                              roc: { window: 12 }, williamsR: { window: 14 },
+                            })
+                          } else if (preset === 'volatility') {
+                            setIndicators({
+                              bollingerBands: { window: 20, numStd: 2.0 },
+                              keltnerChannels: { window: 20, multiplier: 2.0 },
+                              atr: { window: 14 },
+                            })
+                          } else if (preset === 'volume_analysis') {
+                            setIndicators({
+                              vwap: {}, obv: {}, volumeSma: { window: 20 },
+                            })
+                          } else if (preset === 'complete') {
+                            setIndicators({
+                              sma: { window: 50 }, ema: { window: 20 }, macd: { fast: 12, slow: 26, signal: 9 },
+                              adx: { window: 14 }, rsi: { window: 14 }, stochastic: { k_window: 14, d_window: 3 },
+                              bollingerBands: { window: 20, numStd: 2.0 }, atr: { window: 14 },
+                              obv: {}, volumeSma: { window: 20 },
+                            })
+                          }
+                        }}
+                      >
+                        <MenuItem value="">
+                          <em>None</em>
+                        </MenuItem>
+                        <MenuItem value="trend_following">Trend Following</MenuItem>
+                        <MenuItem value="mean_reversion">Mean Reversion</MenuItem>
+                        <MenuItem value="momentum">Momentum</MenuItem>
+                        <MenuItem value="volatility">Volatility</MenuItem>
+                        <MenuItem value="volume_analysis">Volume Analysis</MenuItem>
+                        <MenuItem value="complete">Complete Analysis</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
 
-                {/* Trend Indicators */}
-                <Accordion>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TrendingUpIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                      <Typography variant="subtitle2">Trend Indicators</Typography>
-                    </Box>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Indicators Tabs */}
+                <Tabs 
+                  value={indicatorTabValue} 
+                  onChange={(e, newValue) => setIndicatorTabValue(newValue)}
+                  sx={{ borderBottom: 1, borderColor: 'divider', mb: 1, minHeight: 36 }}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                >
+                  <Tab 
+                    icon={<TrendingUpIcon fontSize="small" />} 
+                    iconPosition="start"
+                    label="Trend" 
+                    sx={{ minHeight: 36, textTransform: 'none', fontSize: '0.875rem', py: 0.5 }}
+                  />
+                  <Tab 
+                    icon={<ShowChartIcon fontSize="small" />} 
+                    iconPosition="start"
+                    label="Volatility" 
+                    sx={{ minHeight: 36, textTransform: 'none', fontSize: '0.875rem', py: 0.5 }}
+                  />
+                  <Tab 
+                    icon={<SpeedIcon fontSize="small" />} 
+                    iconPosition="start"
+                    label="Momentum" 
+                    sx={{ minHeight: 36, textTransform: 'none', fontSize: '0.875rem', py: 0.5 }}
+                  />
+                </Tabs>
+
+                {indicatorTabValue === 0 && (
+                  <Box sx={{ pt: 1 }}>
+                    <Grid container spacing={1}>
                       {/* SMA */}
-                      <Box>
+                      <Grid item xs={6} sm={4} md={3}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -247,9 +272,11 @@ export default function DataExplorer() {
                               onChange={(e) =>
                                 handleIndicatorChange('sma', e.target.checked, { window: 20 })
                               }
+                              size="small"
                             />
                           }
                           label="SMA"
+                          sx={{ mb: indicators.sma ? 0.5 : 0 }}
                         />
                         {indicators.sma && (
                           <TextField
@@ -263,14 +290,13 @@ export default function DataExplorer() {
                             }
                             size="small"
                             fullWidth
-                            sx={{ mt: 1 }}
                             inputProps={{ min: 5, max: 200 }}
                           />
                         )}
-                      </Box>
+                      </Grid>
 
                       {/* EMA */}
-                      <Box>
+                      <Grid item xs={6} sm={4} md={3}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -278,9 +304,11 @@ export default function DataExplorer() {
                               onChange={(e) =>
                                 handleIndicatorChange('ema', e.target.checked, { window: 20 })
                               }
+                              size="small"
                             />
                           }
                           label="EMA"
+                          sx={{ mb: indicators.ema ? 0.5 : 0 }}
                         />
                         {indicators.ema && (
                           <TextField
@@ -294,14 +322,13 @@ export default function DataExplorer() {
                             }
                             size="small"
                             fullWidth
-                            sx={{ mt: 1 }}
                             inputProps={{ min: 5, max: 200 }}
                           />
                         )}
-                      </Box>
+                      </Grid>
 
                       {/* RSI */}
-                      <Box>
+                      <Grid item xs={6} sm={4} md={3}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -309,9 +336,11 @@ export default function DataExplorer() {
                               onChange={(e) =>
                                 handleIndicatorChange('rsi', e.target.checked, { window: 14 })
                               }
+                              size="small"
                             />
                           }
                           label="RSI"
+                          sx={{ mb: indicators.rsi ? 0.5 : 0 }}
                         />
                         {indicators.rsi && (
                           <TextField
@@ -325,12 +354,12 @@ export default function DataExplorer() {
                             }
                             size="small"
                             fullWidth
-                            sx={{ mt: 1 }}
                             inputProps={{ min: 5, max: 50 }}
                           />
                         )}
-                      </Box>
-                      <Box>
+                      </Grid>
+                      {/* Bollinger Bands */}
+                      <Grid item xs={12} sm={6}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -341,46 +370,52 @@ export default function DataExplorer() {
                                   numStd: 2.0,
                                 })
                               }
+                              size="small"
                             />
                           }
                           label="Bollinger Bands"
+                          sx={{ mb: indicators.bollingerBands ? 0.5 : 0 }}
                         />
                         {indicators.bollingerBands && (
-                          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            <TextField
-                              type="number"
-                              label="Window"
-                              value={indicators.bollingerBands.window || 20}
-                              onChange={(e) =>
-                                handleIndicatorChange('bollingerBands', true, {
-                                  ...indicators.bollingerBands,
-                                  window: parseInt(e.target.value) || 20,
-                                })
-                              }
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 5, max: 200 }}
-                            />
-                            <TextField
-                              type="number"
-                              label="Std Dev"
-                              value={indicators.bollingerBands.numStd || 2.0}
-                              onChange={(e) =>
-                                handleIndicatorChange('bollingerBands', true, {
-                                  ...indicators.bollingerBands,
-                                  numStd: parseFloat(e.target.value) || 2.0,
-                                })
-                              }
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 1.0, max: 5.0, step: 0.1 }}
-                            />
-                          </Box>
+                          <Grid container spacing={0.5}>
+                            <Grid item xs={6}>
+                              <TextField
+                                type="number"
+                                label="Window"
+                                value={indicators.bollingerBands.window || 20}
+                                onChange={(e) =>
+                                  handleIndicatorChange('bollingerBands', true, {
+                                    ...indicators.bollingerBands,
+                                    window: parseInt(e.target.value) || 20,
+                                  })
+                                }
+                                size="small"
+                                fullWidth
+                                inputProps={{ min: 5, max: 200 }}
+                              />
+                            </Grid>
+                            <Grid item xs={6}>
+                              <TextField
+                                type="number"
+                                label="Std Dev"
+                                value={indicators.bollingerBands.numStd || 2.0}
+                                onChange={(e) =>
+                                  handleIndicatorChange('bollingerBands', true, {
+                                    ...indicators.bollingerBands,
+                                    numStd: parseFloat(e.target.value) || 2.0,
+                                  })
+                                }
+                                size="small"
+                                fullWidth
+                                inputProps={{ min: 1.0, max: 5.0, step: 0.1 }}
+                              />
+                            </Grid>
+                          </Grid>
                         )}
-                      </Box>
+                      </Grid>
 
                       {/* MACD */}
-                      <Box>
+                      <Grid item xs={12} sm={6}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -392,60 +427,68 @@ export default function DataExplorer() {
                                   signal: 9,
                                 })
                               }
+                              size="small"
                             />
                           }
                           label="MACD"
+                          sx={{ mb: indicators.macd ? 0.5 : 0 }}
                         />
                         {indicators.macd && (
-                          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            <TextField
-                              type="number"
-                              label="Fast"
-                              value={indicators.macd.fast || 12}
-                              onChange={(e) =>
-                                handleIndicatorChange('macd', true, {
-                                  ...indicators.macd,
-                                  fast: parseInt(e.target.value) || 12,
-                                })
-                              }
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 5, max: 50 }}
-                            />
-                            <TextField
-                              type="number"
-                              label="Slow"
-                              value={indicators.macd.slow || 26}
-                              onChange={(e) =>
-                                handleIndicatorChange('macd', true, {
-                                  ...indicators.macd,
-                                  slow: parseInt(e.target.value) || 26,
-                                })
-                              }
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 10, max: 100 }}
-                            />
-                            <TextField
-                              type="number"
-                              label="Signal"
-                              value={indicators.macd.signal || 9}
-                              onChange={(e) =>
-                                handleIndicatorChange('macd', true, {
-                                  ...indicators.macd,
-                                  signal: parseInt(e.target.value) || 9,
-                                })
-                              }
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 5, max: 50 }}
-                            />
-                          </Box>
+                          <Grid container spacing={0.5}>
+                            <Grid item xs={4}>
+                              <TextField
+                                type="number"
+                                label="Fast"
+                                value={indicators.macd.fast || 12}
+                                onChange={(e) =>
+                                  handleIndicatorChange('macd', true, {
+                                    ...indicators.macd,
+                                    fast: parseInt(e.target.value) || 12,
+                                  })
+                                }
+                                size="small"
+                                fullWidth
+                                inputProps={{ min: 5, max: 50 }}
+                              />
+                            </Grid>
+                            <Grid item xs={4}>
+                              <TextField
+                                type="number"
+                                label="Slow"
+                                value={indicators.macd.slow || 26}
+                                onChange={(e) =>
+                                  handleIndicatorChange('macd', true, {
+                                    ...indicators.macd,
+                                    slow: parseInt(e.target.value) || 26,
+                                  })
+                                }
+                                size="small"
+                                fullWidth
+                                inputProps={{ min: 10, max: 100 }}
+                              />
+                            </Grid>
+                            <Grid item xs={4}>
+                              <TextField
+                                type="number"
+                                label="Signal"
+                                value={indicators.macd.signal || 9}
+                                onChange={(e) =>
+                                  handleIndicatorChange('macd', true, {
+                                    ...indicators.macd,
+                                    signal: parseInt(e.target.value) || 9,
+                                  })
+                                }
+                                size="small"
+                                fullWidth
+                                inputProps={{ min: 5, max: 50 }}
+                              />
+                            </Grid>
+                          </Grid>
                         )}
-                      </Box>
+                      </Grid>
 
                       {/* Stochastic */}
-                      <Box>
+                      <Grid item xs={12} sm={6}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -456,46 +499,52 @@ export default function DataExplorer() {
                                   d_window: 3,
                                 })
                               }
+                              size="small"
                             />
                           }
                           label="Stochastic"
+                          sx={{ mb: indicators.stochastic ? 0.5 : 0 }}
                         />
                         {indicators.stochastic && (
-                          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            <TextField
-                              type="number"
-                              label="%K Window"
-                              value={indicators.stochastic.k_window || 14}
-                              onChange={(e) =>
-                                handleIndicatorChange('stochastic', true, {
-                                  ...indicators.stochastic,
-                                  k_window: parseInt(e.target.value) || 14,
-                                })
-                              }
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 5, max: 50 }}
-                            />
-                            <TextField
-                              type="number"
-                              label="%D Window"
-                              value={indicators.stochastic.d_window || 3}
-                              onChange={(e) =>
-                                handleIndicatorChange('stochastic', true, {
-                                  ...indicators.stochastic,
-                                  d_window: parseInt(e.target.value) || 3,
-                                })
-                              }
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 1, max: 20 }}
-                            />
-                          </Box>
+                          <Grid container spacing={0.5}>
+                            <Grid item xs={6}>
+                              <TextField
+                                type="number"
+                                label="%K Window"
+                                value={indicators.stochastic.k_window || 14}
+                                onChange={(e) =>
+                                  handleIndicatorChange('stochastic', true, {
+                                    ...indicators.stochastic,
+                                    k_window: parseInt(e.target.value) || 14,
+                                  })
+                                }
+                                size="small"
+                                fullWidth
+                                inputProps={{ min: 5, max: 50 }}
+                              />
+                            </Grid>
+                            <Grid item xs={6}>
+                              <TextField
+                                type="number"
+                                label="%D Window"
+                                value={indicators.stochastic.d_window || 3}
+                                onChange={(e) =>
+                                  handleIndicatorChange('stochastic', true, {
+                                    ...indicators.stochastic,
+                                    d_window: parseInt(e.target.value) || 3,
+                                  })
+                                }
+                                size="small"
+                                fullWidth
+                                inputProps={{ min: 1, max: 20 }}
+                              />
+                            </Grid>
+                          </Grid>
                         )}
-                      </Box>
+                      </Grid>
 
                       {/* Williams %R */}
-                      <Box>
+                      <Grid item xs={6} sm={4} md={3}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -503,9 +552,11 @@ export default function DataExplorer() {
                               onChange={(e) =>
                                 handleIndicatorChange('williamsR', e.target.checked, { window: 14 })
                               }
+                              size="small"
                             />
                           }
                           label="Williams %R"
+                          sx={{ mb: indicators.williamsR ? 0.5 : 0 }}
                         />
                         {indicators.williamsR && (
                           <TextField
@@ -519,14 +570,13 @@ export default function DataExplorer() {
                             }
                             size="small"
                             fullWidth
-                            sx={{ mt: 1 }}
                             inputProps={{ min: 5, max: 50 }}
                           />
                         )}
-                      </Box>
+                      </Grid>
 
                       {/* CCI */}
-                      <Box>
+                      <Grid item xs={6} sm={4} md={3}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -534,9 +584,11 @@ export default function DataExplorer() {
                               onChange={(e) =>
                                 handleIndicatorChange('cci', e.target.checked, { window: 20 })
                               }
+                              size="small"
                             />
                           }
                           label="CCI"
+                          sx={{ mb: indicators.cci ? 0.5 : 0 }}
                         />
                         {indicators.cci && (
                           <TextField
@@ -550,14 +602,13 @@ export default function DataExplorer() {
                             }
                             size="small"
                             fullWidth
-                            sx={{ mt: 1 }}
                             inputProps={{ min: 5, max: 100 }}
                           />
                         )}
-                      </Box>
+                      </Grid>
 
                       {/* ROC */}
-                      <Box>
+                      <Grid item xs={6} sm={4} md={3}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -565,9 +616,11 @@ export default function DataExplorer() {
                               onChange={(e) =>
                                 handleIndicatorChange('roc', e.target.checked, { window: 12 })
                               }
+                              size="small"
                             />
                           }
                           label="ROC"
+                          sx={{ mb: indicators.roc ? 0.5 : 0 }}
                         />
                         {indicators.roc && (
                           <TextField
@@ -581,27 +634,19 @@ export default function DataExplorer() {
                             }
                             size="small"
                             fullWidth
-                            sx={{ mt: 1 }}
                             inputProps={{ min: 1, max: 50 }}
                           />
                         )}
-                      </Box>
-                    </Box>
-                  </AccordionDetails>
-                </Accordion>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                )}
 
-                {/* Volatility Indicators */}
-                <Accordion>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <ShowChartIcon fontSize="small" sx={{ color: 'error.main' }} />
-                      <Typography variant="subtitle2">Volatility Indicators</Typography>
-                    </Box>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      {/* Bollinger Bands */}
-                      <Box>
+                {indicatorTabValue === 1 && (
+                  <Box sx={{ pt: 1 }}>
+                    <Grid container spacing={1}>
+                      {/* ADX */}
+                      <Grid item xs={6} sm={4} md={3}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -609,9 +654,11 @@ export default function DataExplorer() {
                               onChange={(e) =>
                                 handleIndicatorChange('adx', e.target.checked, { window: 14 })
                               }
+                              size="small"
                             />
                           }
                           label="ADX"
+                          sx={{ mb: indicators.adx ? 0.5 : 0 }}
                         />
                         {indicators.adx && (
                           <TextField
@@ -625,14 +672,13 @@ export default function DataExplorer() {
                             }
                             size="small"
                             fullWidth
-                            sx={{ mt: 1 }}
                             inputProps={{ min: 5, max: 50 }}
                           />
                         )}
-                      </Box>
+                      </Grid>
 
                       {/* Ichimoku */}
-                      <Box>
+                      <Grid item xs={12} sm={6}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -644,86 +690,88 @@ export default function DataExplorer() {
                                   senkou: 52,
                                 })
                               }
+                              size="small"
                             />
                           }
                           label="Ichimoku Cloud"
+                          sx={{ mb: indicators.ichimoku ? 0.5 : 0 }}
                         />
                         {indicators.ichimoku && (
-                          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            <TextField
-                              type="number"
-                              label="Tenkan"
-                              value={indicators.ichimoku.tenkan || 9}
-                              onChange={(e) =>
-                                handleIndicatorChange('ichimoku', true, {
-                                  ...indicators.ichimoku,
-                                  tenkan: parseInt(e.target.value) || 9,
-                                })
-                              }
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 1, max: 50 }}
-                            />
-                            <TextField
-                              type="number"
-                              label="Kijun"
-                              value={indicators.ichimoku.kijun || 26}
-                              onChange={(e) =>
-                                handleIndicatorChange('ichimoku', true, {
-                                  ...indicators.ichimoku,
-                                  kijun: parseInt(e.target.value) || 26,
-                                })
-                              }
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 1, max: 100 }}
-                            />
-                            <TextField
-                              type="number"
-                              label="Senkou"
-                              value={indicators.ichimoku.senkou || 52}
-                              onChange={(e) =>
-                                handleIndicatorChange('ichimoku', true, {
-                                  ...indicators.ichimoku,
-                                  senkou: parseInt(e.target.value) || 52,
-                                })
-                              }
-                              size="small"
-                              fullWidth
-                              inputProps={{ min: 1, max: 200 }}
-                            />
-                          </Box>
+                          <Grid container spacing={0.5}>
+                            <Grid item xs={4}>
+                              <TextField
+                                type="number"
+                                label="Tenkan"
+                                value={indicators.ichimoku.tenkan || 9}
+                                onChange={(e) =>
+                                  handleIndicatorChange('ichimoku', true, {
+                                    ...indicators.ichimoku,
+                                    tenkan: parseInt(e.target.value) || 9,
+                                  })
+                                }
+                                size="small"
+                                fullWidth
+                                inputProps={{ min: 1, max: 50 }}
+                              />
+                            </Grid>
+                            <Grid item xs={4}>
+                              <TextField
+                                type="number"
+                                label="Kijun"
+                                value={indicators.ichimoku.kijun || 26}
+                                onChange={(e) =>
+                                  handleIndicatorChange('ichimoku', true, {
+                                    ...indicators.ichimoku,
+                                    kijun: parseInt(e.target.value) || 26,
+                                  })
+                                }
+                                size="small"
+                                fullWidth
+                                inputProps={{ min: 1, max: 100 }}
+                              />
+                            </Grid>
+                            <Grid item xs={4}>
+                              <TextField
+                                type="number"
+                                label="Senkou"
+                                value={indicators.ichimoku.senkou || 52}
+                                onChange={(e) =>
+                                  handleIndicatorChange('ichimoku', true, {
+                                    ...indicators.ichimoku,
+                                    senkou: parseInt(e.target.value) || 52,
+                                  })
+                                }
+                                size="small"
+                                fullWidth
+                                inputProps={{ min: 1, max: 200 }}
+                              />
+                            </Grid>
+                          </Grid>
                         )}
-                      </Box>
+                      </Grid>
 
                       {/* VWAP */}
-                      <Box>
+                      <Grid item xs={6} sm={4} md={3}>
                         <FormControlLabel
                           control={
                             <Checkbox
                               checked={!!indicators.vwap}
                               onChange={(e) => handleIndicatorChange('vwap', e.target.checked)}
+                              size="small"
                             />
                           }
                           label="VWAP"
                         />
-                      </Box>
-                    </Box>
-                  </AccordionDetails>
-                </Accordion>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                )}
 
-                {/* Momentum Indicators */}
-                <Accordion>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <SpeedIcon fontSize="small" sx={{ color: 'warning.main' }} />
-                      <Typography variant="subtitle2">Momentum Indicators</Typography>
-                    </Box>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      {/* RSI */}
-                      <Box>
+                {indicatorTabValue === 2 && (
+                  <Box sx={{ pt: 1 }}>
+                    <Grid container spacing={1}>
+                      {/* ATR */}
+                      <Grid item xs={6} sm={4} md={3}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -731,9 +779,11 @@ export default function DataExplorer() {
                               onChange={(e) =>
                                 handleIndicatorChange('atr', e.target.checked, { window: 14 })
                               }
+                              size="small"
                             />
                           }
                           label="ATR"
+                          sx={{ mb: indicators.atr ? 0.5 : 0 }}
                         />
                         {indicators.atr && (
                           <TextField
@@ -747,27 +797,27 @@ export default function DataExplorer() {
                             }
                             size="small"
                             fullWidth
-                            sx={{ mt: 1 }}
                             inputProps={{ min: 5, max: 50 }}
                           />
                         )}
-                      </Box>
+                      </Grid>
 
                       {/* OBV */}
-                      <Box>
+                      <Grid item xs={6} sm={4} md={3}>
                         <FormControlLabel
                           control={
                             <Checkbox
                               checked={!!indicators.obv}
                               onChange={(e) => handleIndicatorChange('obv', e.target.checked)}
+                              size="small"
                             />
                           }
-                          label="OBV (On-Balance Volume)"
+                          label="OBV"
                         />
-                      </Box>
+                      </Grid>
 
                       {/* Volume SMA */}
-                      <Box>
+                      <Grid item xs={6} sm={4} md={3}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -775,9 +825,11 @@ export default function DataExplorer() {
                               onChange={(e) =>
                                 handleIndicatorChange('volumeSma', e.target.checked, { window: 20 })
                               }
+                              size="small"
                             />
                           }
                           label="Volume SMA"
+                          sx={{ mb: indicators.volumeSma ? 0.5 : 0 }}
                         />
                         {indicators.volumeSma && (
                           <TextField
@@ -791,14 +843,13 @@ export default function DataExplorer() {
                             }
                             size="small"
                             fullWidth
-                            sx={{ mt: 1 }}
                             inputProps={{ min: 5, max: 200 }}
                           />
                         )}
-                      </Box>
+                      </Grid>
 
                       {/* Volume Profile */}
-                      <Box>
+                      <Grid item xs={6} sm={4} md={3}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -808,9 +859,11 @@ export default function DataExplorer() {
                                   bins: 20,
                                 })
                               }
+                              size="small"
                             />
                           }
                           label="Volume Profile"
+                          sx={{ mb: indicators.volumeProfile ? 0.5 : 0 }}
                         />
                         {indicators.volumeProfile && (
                           <TextField
@@ -824,19 +877,19 @@ export default function DataExplorer() {
                             }
                             size="small"
                             fullWidth
-                            sx={{ mt: 1 }}
                             inputProps={{ min: 5, max: 100 }}
                           />
                         )}
-                      </Box>
-                    </Box>
-                  </AccordionDetails>
-                </Accordion>
-              </Paper>
-            </Grid>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                )}
+            </Paper>
+          </Box>
 
-            {/* Chart */}
-            <Grid item xs={12} md={9}>
+          {/* Chart */}
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
               <Paper sx={{ p: 3 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>

@@ -39,13 +39,14 @@ export const dataService = {
   },
 
   // Data fetching endpoints
-  async fetchData({ symbol, startDate, endDate, useCache = true, forceRefresh = false, dataSource = null }) {
+  async fetchData({ symbol, startDate, endDate, useCache = true, forceRefresh = false, dataSource = null, interval = '1d' }) {
     const requestBody = {
       symbol,
       start_date: startDate,
       end_date: endDate,
       use_cache: useCache,
       force_refresh: forceRefresh,
+      interval: interval,
     }
     
     // Only include data_source if it's provided

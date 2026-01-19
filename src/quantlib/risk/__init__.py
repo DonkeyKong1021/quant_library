@@ -33,6 +33,10 @@ from quantlib.risk.var import (
     monte_carlo_var,
     cvar,
 )
+from quantlib.risk.monte_carlo import (
+    monte_carlo_simulation,
+    monte_carlo_metrics,
+)
 from quantlib.risk.calculator import RiskCalculator
 
 __all__ = [
@@ -68,4 +72,7 @@ __all__ = [
     "cvar",
     # Calculator
     "RiskCalculator",
+    # Monte Carlo
+    "monte_carlo_simulation",
+    "monte_carlo_metrics",
 ]

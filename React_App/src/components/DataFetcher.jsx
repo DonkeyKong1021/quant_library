@@ -52,6 +52,7 @@ export default function DataFetcher({ onDataFetched }) {
   const [fetchedData, setFetchedData] = useState(null)
   const [dataCached, setDataCached] = useState(false)
   const [selectedPreset, setSelectedPreset] = useState('')
+  const [interval, setInterval] = useState('1d')
   
   // Available data sources
   const availableDataSources = [
@@ -216,6 +217,7 @@ export default function DataFetcher({ onDataFetched }) {
         useCache: useCache,
         forceRefresh: forceRefresh,
         dataSource: dataSource !== 'yahoo' ? dataSource : null, // Only send if not default
+        interval: interval,
       })
 
       if (response.data && response.data.length > 0) {
@@ -419,6 +421,27 @@ export default function DataFetcher({ onDataFetched }) {
             >
               {loading ? <CircularProgress size={24} color="inherit" /> : 'Fetch Data'}
             </Button>
+          </Grid>
+
+          {/* Interval Selector */}
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <InputLabel>Interval</InputLabel>
+              <Select
+                value={interval}
+                label="Interval"
+                onChange={(e) => setInterval(e.target.value)}
+              >
+                <MenuItem value="1d">Daily (1d)</MenuItem>
+                <MenuItem value="1h">Hourly (1h)</MenuItem>
+                <MenuItem value="1m">1 Minute (1m)</MenuItem>
+                <MenuItem value="5m">5 Minutes (5m)</MenuItem>
+                <MenuItem value="15m">15 Minutes (15m)</MenuItem>
+                <MenuItem value="30m">30 Minutes (30m)</MenuItem>
+                <MenuItem value="60m">60 Minutes (60m)</MenuItem>
+                <MenuItem value="90m">90 Minutes (90m)</MenuItem>
+              </Select>
+            </FormControl>
           </Grid>
 
           {/* Date Presets */}

@@ -218,23 +218,25 @@ async def fetch_data(request: DataFetchRequest):
 
         # Check if data exists in database and use_cache is True
         # Skip cache check if force_refresh or force_refresh_all is requested
+        interval = request.interval if request.interval else '1d'
         if request.use_cache and not request.force_refresh and not request.force_refresh_all:
             try:
-                data = store.load(symbol, start=start_date, end=end_date)
+                data = store.load(symbol, start=start_date, end=end_date, interval=interval)
                 if data is not None and not data.empty:
                     cached = True
             except Exception:
                 pass  # Data not in cache, fetch from source
 
         # Fetch from source if not cached, force_refresh, or force_refresh_all
+        interval = request.interval if request.interval else '1d'
         if data is None or data.empty or request.force_refresh or request.force_refresh_all:
             try:
-                data = fetcher.fetch_ohlcv(symbol, start=start_date, end=end_date)
+                data = fetcher.fetch_ohlcv(symbol, start=start_date, end=end_date, interval=interval)
                 cached = False
                 # Save to database with appropriate replace strategy
                 # replace_all=True deletes ALL existing data before inserting
                 # replace_all=False (default) only replaces data in the date range
-                store.save(symbol, data, replace_all=request.force_refresh_all)
+                store.save(symbol, data, interval=interval, replace_all=request.force_refresh_all)
             except Exception as e:
                 # Log error but don't fail the request if we have data
                 print(f"Warning: Failed to save data to database: {e}")

@@ -54,6 +54,20 @@ export const backtestService = {
     })
     return response.data
   },
+
+  async optimizeParameters({ data, strategy, config, symbol, parameterRanges, objective = 'sharpe_ratio', optimizationType = 'grid', maxCombinations = 100 }) {
+    const response = await api.post('/api/backtest/optimize', {
+      data,
+      strategy,
+      config,
+      symbol,
+      parameter_ranges: parameterRanges,
+      objective,
+      optimization_type: optimizationType,
+      max_combinations: maxCombinations,
+    })
+    return response.data
+  },
 }
 
 export const strategyService = {

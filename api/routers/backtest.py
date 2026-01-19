@@ -7,8 +7,10 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 import pandas as pd
 import numpy as np
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import uuid
+from itertools import product
+from scipy.optimize import minimize
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -38,6 +40,13 @@ from api.models.schemas import (
     BacktestCompareRequest,
     BacktestCompareResponse,
     ComparisonMetric,
+    OptimizationRequest,
+    OptimizationResponse,
+    OptimizationResult,
+    ParameterRange,
+    WalkForwardRequest,
+    WalkForwardResponse,
+    WalkForwardWindow,
 )
 
 router = APIRouter()
@@ -294,6 +303,101 @@ def serialize_dataframe(df: pd.DataFrame) -> list:
     if 'Date' in df.columns or df.index.name == 'Date':
         df['Date'] = df['Date'].astype(str)
     return df.to_dict('records')
+
+
+def run_single_backtest(
+    data_df: pd.DataFrame,
+    strategy_config: Dict[str, Any],
+    config: Dict[str, Any],
+    symbol: str
+) -> Dict[str, Any]:
+    """
+    Run a single backtest with given parameters and return metrics.
+    
+    Args:
+        data_df: DataFrame with OHLCV data
+        strategy_config: Strategy configuration dict (type and params)
+        config: Backtest configuration dict
+        symbol: Trading symbol
+        
+    Returns:
+        Dictionary with metrics and result_id
+    """
+    # Create strategy
+    strategy = create_strategy(strategy_config)
+    
+    # Get backtest configuration
+    initial_capital = config.get('initial_capital', 100000)
+    commission = config.get('commission', 1.0)
+    slippage = config.get('slippage', 0.0)
+    commission_type = config.get('commission_type', 'fixed')
+    
+    # Create and run backtest engine
+    engine = BacktestEngine(
+        initial_capital=initial_capital,
+        commission=commission,
+        slippage=slippage,
+        commission_type=commission_type
+    )
+    
+    # Store symbol in engine for context
+    engine._symbol = symbol
+    
+    results = engine.run(strategy, data_df, symbol=symbol)
+    
+    # Extract data for metrics calculation
+    returns = results.get('returns', pd.Series())
+    equity_curve = results.get('equity_curve', pd.Series())
+    trades_df = results.get('trades', pd.DataFrame())
+    
+    # Calculate comprehensive metrics using RiskCalculator
+    metrics = {}
+    if len(returns) > 0:
+        try:
+            # Prepare trades DataFrame with PnL if available
+            trades_for_metrics = None
+            if not trades_df.empty:
+                if 'pnl' not in trades_df.columns and 'price' in trades_df.columns:
+                    trades_for_metrics = trades_df.copy()
+                elif 'pnl' in trades_df.columns:
+                    trades_for_metrics = trades_df.copy()
+            
+            # Create risk calculator
+            calculator = RiskCalculator(
+                returns=returns,
+                equity_curve=equity_curve if len(equity_curve) > 0 else None,
+                trades=trades_for_metrics,
+                risk_free_rate=config.get('risk_free_rate', 0.0),
+                periods=252,  # Daily data
+            )
+            
+            # Get all metrics (flat structure for API)
+            all_metrics = calculator.get_flat_metrics()
+            metrics.update(all_metrics)
+        except Exception as e:
+            print(f"Warning: Error calculating comprehensive metrics: {e}")
+            # Fall back to basic metrics
+            if len(returns) > 0:
+                metrics['sharpe_ratio'] = float(sharpe_ratio(returns))
+                metrics['sortino_ratio'] = float(sortino_ratio(returns))
+                if len(equity_curve) > 0:
+                    max_dd = max_drawdown(equity_curve)
+                    max_dd_pct = max_drawdown_pct(equity_curve)
+                    metrics['max_drawdown'] = float(max_dd)
+                    metrics['max_drawdown_pct'] = float(max_dd_pct)
+                    if max_dd_pct != 0:
+                        metrics['calmar_ratio'] = float(calmar_ratio(returns, abs(max_dd_pct / 100)))
+    
+    # Add basic result metrics
+    metrics['total_return'] = float(results.get('total_return', 0))
+    metrics['num_trades'] = int(results.get('num_trades', 0))
+    metrics['initial_capital'] = float(results.get('initial_capital', initial_capital))
+    metrics['final_equity'] = float(results.get('final_equity', initial_capital))
+    
+    return {
+        'metrics': metrics,
+        'results': results,
+    }
 
 
 @router.post("/run", response_model=BacktestResponse)
@@ -850,3 +954,369 @@ async def compare_backtest_results(request: BacktestCompareRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error comparing results: {str(e)}")
+
+
+@router.post("/optimize", response_model=OptimizationResponse)
+async def optimize_parameters(request: OptimizationRequest):
+    """Optimize strategy parameters using grid search or scipy.optimize
+    
+    Supports grid search for discrete parameters and scipy.optimize.minimize for continuous optimization.
+    """
+    try:
+        # Convert data from list of dicts to DataFrame
+        data_df = dict_list_to_dataframe(request.data)
+        
+        if data_df.empty:
+            raise HTTPException(status_code=400, detail="Data is empty")
+        
+        # Get base strategy config (without optimized parameters)
+        base_strategy = request.strategy.copy()
+        base_params = base_strategy.get('params', {}).copy()
+        
+        # Extract parameter names and ranges
+        param_names = list(request.parameter_ranges.keys())
+        if not param_names:
+            raise HTTPException(status_code=400, detail="No parameters specified for optimization")
+        
+        optimization_id = str(uuid.uuid4())
+        all_results = []
+        
+        if request.optimization_type == 'grid':
+            # Grid search optimization
+            param_values = {}
+            for param_name, param_range in request.parameter_ranges.items():
+                param_type = param_range.type
+                min_val = param_range.min
+                max_val = param_range.max
+                step = param_range.step if param_range.step else (1.0 if param_type == 'int' else 0.1)
+                
+                if param_type == 'int':
+                    # Integer range
+                    values = list(range(int(min_val), int(max_val) + 1, int(step)))
+                else:
+                    # Float range
+                    values = np.arange(min_val, max_val + step, step).tolist()
+                
+                param_values[param_name] = values
+            
+            # Generate all combinations
+            param_combinations = list(product(*[param_values[name] for name in param_names]))
+            
+            # Limit combinations if too many
+            if len(param_combinations) > request.max_combinations:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Too many parameter combinations ({len(param_combinations)}). "
+                           f"Maximum allowed: {request.max_combinations}. "
+                           f"Reduce parameter ranges or increase max_combinations."
+                )
+            
+            # Run backtests for each combination
+            for param_combo in param_combinations:
+                # Create params dict for this combination
+                test_params = base_params.copy()
+                for i, param_name in enumerate(param_names):
+                    test_params[param_name] = param_combo[i]
+                
+                # Update strategy config with test parameters
+                test_strategy_config = base_strategy.copy()
+                test_strategy_config['params'] = test_params
+                
+                try:
+                    # Run backtest
+                    result = run_single_backtest(
+                        data_df=data_df,
+                        strategy_config=test_strategy_config,
+                        config=request.config,
+                        symbol=request.symbol
+                    )
+                    
+                    # Get objective value
+                    metrics = result['metrics']
+                    objective_value = metrics.get(request.objective, float('-inf'))
+                    
+                    # Generate result ID
+                    result_id = str(uuid.uuid4())
+                    
+                    # Store result (optional - could skip to save space for large optimizations)
+                    # For now, we'll just store in memory/database if enabled
+                    
+                    all_results.append({
+                        'parameters': test_params.copy(),
+                        'metrics': metrics,
+                        'result_id': result_id,
+                        'objective_value': float(objective_value) if objective_value is not None else float('-inf'),
+                    })
+                    
+                except Exception as e:
+                    print(f"Warning: Error running backtest with params {test_params}: {e}")
+                    # Continue with next combination
+                    continue
+        
+        elif request.optimization_type == 'minimize':
+            # Continuous optimization using scipy.optimize
+            # This is more complex and requires converting params to a vector
+            # For now, we'll implement a simplified version
+            
+            # Define objective function
+            def objective_function(param_vector):
+                # Map vector back to param dict
+                test_params = base_params.copy()
+                for i, param_name in enumerate(param_names):
+                    param_range = request.parameter_ranges[param_name]
+                    if param_range.type == 'int':
+                        test_params[param_name] = int(param_vector[i])
+                    else:
+                        test_params[param_name] = float(param_vector[i])
+                
+                # Update strategy config
+                test_strategy_config = base_strategy.copy()
+                test_strategy_config['params'] = test_params
+                
+                try:
+                    result = run_single_backtest(
+                        data_df=data_df,
+                        strategy_config=test_strategy_config,
+                        config=request.config,
+                        symbol=request.symbol
+                    )
+                    
+                    metrics = result['metrics']
+                    objective_value = metrics.get(request.objective, float('-inf'))
+                    
+                    # Negate for minimization (scipy minimizes, so negate to maximize)
+                    return -float(objective_value) if objective_value is not None else float('inf')
+                except Exception as e:
+                    print(f"Warning: Error in optimization: {e}")
+                    return float('inf')
+            
+            # Set up bounds
+            bounds = []
+            initial_guess = []
+            for param_name in param_names:
+                param_range = request.parameter_ranges[param_name]
+                bounds.append((param_range.min, param_range.max))
+                initial_guess.append((param_range.min + param_range.max) / 2.0)
+            
+            # Run optimization
+            opt_result = minimize(
+                objective_function,
+                x0=initial_guess,
+                method='L-BFGS-B',  # Bounded optimization
+                bounds=bounds,
+                options={'maxiter': 50}  # Limit iterations
+            )
+            
+            # Extract best parameters
+            best_params = base_params.copy()
+            for i, param_name in enumerate(param_names):
+                param_range = request.parameter_ranges[param_name]
+                if param_range.type == 'int':
+                    best_params[param_name] = int(opt_result.x[i])
+                else:
+                    best_params[param_name] = float(opt_result.x[i])
+            
+            # Run final backtest with best parameters
+            best_strategy_config = base_strategy.copy()
+            best_strategy_config['params'] = best_params
+            
+            result = run_single_backtest(
+                data_df=data_df,
+                strategy_config=best_strategy_config,
+                config=request.config,
+                symbol=request.symbol
+            )
+            
+            metrics = result['metrics']
+            objective_value = metrics.get(request.objective, float('-inf'))
+            
+            result_id = str(uuid.uuid4())
+            
+            all_results.append({
+                'parameters': best_params,
+                'metrics': metrics,
+                'result_id': result_id,
+                'objective_value': float(objective_value) if objective_value is not None else float('-inf'),
+            })
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown optimization type: {request.optimization_type}. Must be 'grid' or 'minimize'"
+            )
+        
+        if not all_results:
+            raise HTTPException(status_code=500, detail="No successful backtests in optimization")
+        
+        # Find best result based on objective
+        best_result_data = max(all_results, key=lambda x: x['objective_value'])
+        
+        # Sort all results by objective (descending)
+        all_results_sorted = sorted(all_results, key=lambda x: x['objective_value'], reverse=True)
+        
+        # Convert to response format
+        best_result = OptimizationResult(
+            parameters=best_result_data['parameters'],
+            metrics=best_result_data['metrics'],
+            result_id=best_result_data['result_id'],
+            objective_value=best_result_data['objective_value']
+        )
+        
+        all_results_response = [
+            OptimizationResult(
+                parameters=r['parameters'],
+                metrics=r['metrics'],
+                result_id=r['result_id'],
+                objective_value=r['objective_value']
+            )
+            for r in all_results_sorted
+        ]
+        
+        # Get strategy name
+        strategy_name = base_strategy.get('type', 'unknown')
+        if strategy_name == 'custom':
+            strategy_name = 'Custom Strategy'
+        else:
+            # Get friendly name from strategies dict
+            try:
+                from api.routers.strategies import STRATEGIES
+                if strategy_name in STRATEGIES:
+                    strategy_name = STRATEGIES[strategy_name]['name']
+            except:
+                pass
+        
+        return OptimizationResponse(
+            optimization_id=optimization_id,
+            symbol=request.symbol,
+            strategy_name=strategy_name,
+            best_result=best_result,
+            all_results=all_results_response,
+            total_runs=len(all_results),
+            optimization_type=request.optimization_type,
+            objective=request.objective,
+        )
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid optimization request: {str(e)}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error running optimization: {str(e)}")
+
+
+@router.post("/walkforward", response_model=WalkForwardResponse)
+async def walkforward_analysis(request: WalkForwardRequest):
+    """Run walk-forward analysis to test for overfitting
+    
+    Walk-forward analysis splits data into training and testing periods,
+    optimizes parameters on training data, then tests on out-of-sample data.
+    This helps detect overfitting by comparing in-sample vs out-of-sample performance.
+    """
+    try:
+        from quantlib.backtesting.walkforward import WalkForwardAnalyzer
+        
+        # Convert data from list of dicts to DataFrame
+        data_df = dict_list_to_dataframe(request.data)
+        
+        if data_df.empty:
+            raise HTTPException(status_code=400, detail="Data is empty")
+        
+        # Create strategy factory function
+        base_strategy = request.strategy.copy()
+        
+        def strategy_factory(params: Dict[str, Any]) -> Strategy:
+            strategy_config = base_strategy.copy()
+            strategy_config['params'] = params
+            return create_strategy(strategy_config)
+        
+        # Convert parameter ranges format
+        param_ranges = {}
+        for param_name, param_range in request.parameter_ranges.items():
+            param_ranges[param_name] = {
+                'min': param_range.min,
+                'max': param_range.max,
+                'step': param_range.step if param_range.step else (1.0 if param_range.type == 'int' else 0.1),
+                'type': param_range.type,
+            }
+        
+        # Get backtest configuration
+        config = request.config
+        initial_capital = config.get('initial_capital', 100000)
+        commission = config.get('commission', 1.0)
+        slippage = config.get('slippage', 0.0)
+        commission_type = config.get('commission_type', 'fixed')
+        risk_free_rate = config.get('risk_free_rate', 0.0)
+        
+        # Create walk-forward analyzer
+        analyzer = WalkForwardAnalyzer(
+            train_size=request.train_size,
+            test_size=request.test_size,
+            step_size=request.step_size,
+            anchor=request.anchor
+        )
+        
+        # Run walk-forward analysis
+        wf_results = analyzer.run_analysis(
+            strategy_factory=strategy_factory,
+            data=data_df,
+            symbol=request.symbol,
+            parameter_ranges=param_ranges,
+            optimization_objective=request.objective,
+            initial_capital=initial_capital,
+            commission=commission,
+            slippage=slippage,
+            commission_type=commission_type,
+            risk_free_rate=risk_free_rate,
+        )
+        
+        # Convert to response format
+        walkforward_id = str(uuid.uuid4())
+        
+        windows_response = [
+            WalkForwardWindow(
+                window=w['window'],
+                train_start_date=str(w['train_start_date']),
+                train_end_date=str(w['train_end_date']),
+                test_start_date=str(w['test_start_date']),
+                test_end_date=str(w['test_end_date']),
+                optimized_parameters=w['optimized_parameters'],
+                train_metrics=w['train_metrics'],
+                test_metrics=w['test_metrics'],
+            )
+            for w in wf_results['windows']
+        ]
+        
+        # Get strategy name
+        strategy_name = base_strategy.get('type', 'unknown')
+        if strategy_name == 'custom':
+            strategy_name = 'Custom Strategy'
+        else:
+            try:
+                from api.routers.strategies import STRATEGIES
+                if strategy_name in STRATEGIES:
+                    strategy_name = STRATEGIES[strategy_name]['name']
+            except:
+                pass
+        
+        return WalkForwardResponse(
+            walkforward_id=walkforward_id,
+            symbol=request.symbol,
+            strategy_name=strategy_name,
+            windows=windows_response,
+            summary=wf_results['summary'],
+            train_size=wf_results['train_size'],
+            test_size=wf_results['test_size'],
+            step_size=wf_results['step_size'],
+            anchor=wf_results['anchor'],
+            total_windows=wf_results['total_windows'],
+        )
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid walk-forward request: {str(e)}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error running walk-forward analysis: {str(e)}")
