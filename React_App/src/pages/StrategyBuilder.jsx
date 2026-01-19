@@ -29,8 +29,10 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { useNavigate } from 'react-router-dom'
 import StrategyEditor from '../components/StrategyEditor'
 import StrategyTemplates from '../components/StrategyTemplates'
+import StrategyLibrary from '../components/StrategyLibrary'
 import { strategyStorage } from '../utils/strategyStorage'
 import { validateStrategyCode, extractClassName } from '../utils/strategyValidator'
+import { getLibraryStrategyCode } from '../services/strategyLibraryService'
 
 export default function StrategyBuilder() {
   const navigate = useNavigate()
@@ -42,6 +44,22 @@ export default function StrategyBuilder() {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [selectedStrategy, setSelectedStrategy] = useState(null)
   const [tabValue, setTabValue] = useState(0)
+
+  const handleLibraryStrategySelect = async (strategyId) => {
+    try {
+      const data = await getLibraryStrategyCode(strategyId)
+      if (data.code) {
+        setCode(data.code)
+        const className = extractClassName(data.code)
+        if (className && !strategyName) {
+          setStrategyName(data.name || className.replace('Strategy', '').replace(/([A-Z])/g, ' $1').trim())
+        }
+      }
+    } catch (error) {
+      alert('Error loading strategy code: ' + error.message)
+      console.error('Error loading strategy:', error)
+    }
+  }
 
   const loadSavedStrategies = () => {
     const strategies = strategyStorage.getAll()
@@ -179,6 +197,7 @@ export default function StrategyBuilder() {
           <Paper sx={{ p: 4, elevation: 1 }}>
             <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ mb: 2 }}>
               <Tab label="Templates" />
+              <Tab label="Library" />
               <Tab label="Saved" />
             </Tabs>
 
@@ -189,6 +208,12 @@ export default function StrategyBuilder() {
             )}
 
             {tabValue === 1 && (
+              <Box>
+                <StrategyLibrary onSelectStrategy={handleLibraryStrategySelect} />
+              </Box>
+            )}
+
+            {tabValue === 2 && (
               <Box>
                 {savedStrategies.length === 0 ? (
                   <Box sx={{ textAlign: 'center', py: 6 }}>

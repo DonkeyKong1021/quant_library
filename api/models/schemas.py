@@ -217,3 +217,37 @@ class WalkForwardResponse(BaseModel):
     step_size: int
     anchor: bool
     total_windows: int
+
+
+class StrategyLibraryItem(BaseModel):
+    """Strategy library item summary"""
+    id: str
+    name: str
+    description: str
+    category: str
+    tags: List[str]
+    uses_framework: bool
+
+
+class StrategyLibraryListResponse(BaseModel):
+    """Response for listing strategy library"""
+    strategies: List[StrategyLibraryItem]
+    categories: List[str]
+    total: int
+
+
+class StrategyLibraryDetailResponse(BaseModel):
+    """Detailed strategy information from library"""
+    id: str
+    name: str
+    description: str
+    category: str
+    author: str
+    version: str
+    parameters: List[Dict[str, Any]]
+    documentation: str
+    references: List[str]
+    tags: List[str]
+    code: Optional[str] = None
+    uses_framework: bool
+    framework_components: Dict[str, str]

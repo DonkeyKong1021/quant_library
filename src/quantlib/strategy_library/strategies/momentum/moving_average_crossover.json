@@ -1,0 +1,36 @@
+{
+  "id": "moving_average_crossover",
+  "name": "Moving Average Crossover",
+  "description": "A classic trend-following strategy that generates buy signals when a short-term moving average crosses above a long-term moving average, and sell signals when it crosses below.",
+  "category": "momentum",
+  "author": "QuantLib",
+  "version": "1.0.0",
+  "parameters": [
+    {
+      "name": "short_window",
+      "type": "int",
+      "default": 20,
+      "description": "Short-term moving average period",
+      "min": 1,
+      "max": 200,
+      "step": 1
+    },
+    {
+      "name": "long_window",
+      "type": "int",
+      "default": 50,
+      "description": "Long-term moving average period",
+      "min": 1,
+      "max": 200,
+      "step": 1
+    }
+  ],
+  "code_file": "moving_average_crossover.py",
+  "documentation": "This strategy buys when the short moving average crosses above the long moving average (golden cross) and sells when it crosses below (death cross). It's a simple but effective trend-following approach.",
+  "references": [
+    "Classic technical analysis literature"
+  ],
+  "tags": ["trend", "moving-average", "crossover", "momentum", "simple"],
+  "uses_framework": false,
+  "framework_components": {}
+}

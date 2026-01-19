@@ -1,0 +1,39 @@
+{
+  "id": "ma_crossover_framework",
+  "name": "Moving Average Crossover (Framework)",
+  "description": "Moving Average Crossover strategy implemented using the Algorithm Framework. Demonstrates modular architecture with separate universe, alpha, portfolio, and execution components.",
+  "category": "momentum",
+  "author": "QuantLib",
+  "version": "1.0.0",
+  "parameters": [
+    {
+      "name": "short_window",
+      "type": "int",
+      "default": 20,
+      "description": "Short-term moving average period",
+      "min": 1,
+      "max": 200,
+      "step": 1
+    },
+    {
+      "name": "long_window",
+      "type": "int",
+      "default": 50,
+      "description": "Long-term moving average period",
+      "min": 1,
+      "max": 200,
+      "step": 1
+    }
+  ],
+  "code_file": "ma_crossover_framework.py",
+  "documentation": "This strategy demonstrates the Algorithm Framework approach. It uses:\n- ManualUniverse for symbol selection\n- MovingAverageAlpha for signal generation\n- EqualWeightingPortfolio for position sizing\n- ImmediateExecutionModel for order execution\n\nThis modular approach makes it easy to swap components and build more complex strategies.",
+  "references": [],
+  "tags": ["framework", "trend", "moving-average", "crossover", "momentum", "example"],
+  "uses_framework": true,
+  "framework_components": {
+    "universe": "ManualUniverse",
+    "alpha": "MovingAverageAlpha",
+    "portfolio": "EqualWeightingPortfolio",
+    "execution": "ImmediateExecutionModel"
+  }
+}

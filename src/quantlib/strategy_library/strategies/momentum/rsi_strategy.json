@@ -1,0 +1,45 @@
+{
+  "id": "rsi_strategy",
+  "name": "RSI Momentum Strategy",
+  "description": "A momentum strategy using the Relative Strength Index (RSI) indicator. Buys when RSI indicates oversold conditions and sells when RSI indicates overbought conditions.",
+  "category": "momentum",
+  "author": "QuantLib",
+  "version": "1.0.0",
+  "parameters": [
+    {
+      "name": "rsi_window",
+      "type": "int",
+      "default": 14,
+      "description": "RSI calculation period",
+      "min": 2,
+      "max": 50,
+      "step": 1
+    },
+    {
+      "name": "rsi_oversold",
+      "type": "float",
+      "default": 30,
+      "description": "RSI threshold for oversold condition (buy signal)",
+      "min": 0,
+      "max": 50,
+      "step": 1
+    },
+    {
+      "name": "rsi_overbought",
+      "type": "float",
+      "default": 70,
+      "description": "RSI threshold for overbought condition (sell signal)",
+      "min": 50,
+      "max": 100,
+      "step": 1
+    }
+  ],
+  "code_file": "rsi_strategy.py",
+  "documentation": "This strategy uses RSI to identify overbought and oversold conditions. RSI values below the oversold threshold indicate potential buying opportunities, while values above the overbought threshold suggest selling.",
+  "references": [
+    "J. Welles Wilder, 'New Concepts in Technical Trading Systems'"
+  ],
+  "tags": ["rsi", "momentum", "oscillator", "mean-reversion"],
+  "uses_framework": false,
+  "framework_components": {}
+}

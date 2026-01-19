@@ -4,16 +4,31 @@ Strategy endpoints
 
 import sys
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from typing import Optional, List
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from api.models.schemas import StrategyListResponse, StrategyParamsResponse
+from api.models.schemas import (
+    StrategyListResponse,
+    StrategyParamsResponse,
+    StrategyLibraryListResponse,
+    StrategyLibraryDetailResponse,
+    StrategyLibraryItem,
+)
 
 router = APIRouter()
+
+# Try to import strategy library
+try:
+    from quantlib.strategy_library import get_registry
+    STRATEGY_LIBRARY_AVAILABLE = True
+except ImportError:
+    STRATEGY_LIBRARY_AVAILABLE = False
+    get_registry = None
 
 # Strategy definitions
 STRATEGIES = {
@@ -85,3 +100,131 @@ async def get_strategy_params(strategy_name: str):
         parameters=params_dict,
         description=strategy_def["description"]
     )
+
+
+# Strategy Library Endpoints
+
+@router.get("/library", response_model=StrategyLibraryListResponse)
+async def list_library_strategies(
+    category: Optional[str] = Query(None, description="Filter by category"),
+    search: Optional[str] = Query(None, description="Search in name, description, tags"),
+    tags: Optional[str] = Query(None, description="Comma-separated list of tags to filter by")
+):
+    """List all strategies in the library"""
+    if not STRATEGY_LIBRARY_AVAILABLE:
+        return StrategyLibraryListResponse(
+            strategies=[],
+            categories=[],
+            total=0
+        )
+    
+    registry = get_registry()
+    
+    # Parse tags
+    tag_list = [t.strip() for t in tags.split(',')] if tags else None
+    
+    # Get strategies
+    strategies = registry.list_strategies(
+        category=category,
+        tags=tag_list,
+        search=search
+    )
+    
+    # Convert to response format
+    strategy_items = [
+        StrategyLibraryItem(
+            id=s.id,
+            name=s.name,
+            description=s.description,
+            category=s.category,
+            tags=s.tags,
+            uses_framework=s.uses_framework
+        )
+        for s in strategies
+    ]
+    
+    # Get categories
+    categories = list(registry.get_categories())
+    
+    return StrategyLibraryListResponse(
+        strategies=strategy_items,
+        categories=categories,
+        total=len(strategy_items)
+    )
+
+
+@router.get("/library/categories")
+async def get_library_categories():
+    """Get all strategy categories"""
+    if not STRATEGY_LIBRARY_AVAILABLE:
+        return {"categories": []}
+    
+    registry = get_registry()
+    categories = list(registry.get_categories())
+    return {"categories": categories}
+
+
+@router.get("/library/{strategy_id}", response_model=StrategyLibraryDetailResponse)
+async def get_library_strategy(strategy_id: str):
+    """Get detailed information about a strategy from the library"""
+    if not STRATEGY_LIBRARY_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Strategy library not available")
+    
+    registry = get_registry()
+    strategy = registry.get_strategy(strategy_id)
+    
+    if not strategy:
+        raise HTTPException(status_code=404, detail=f"Strategy '{strategy_id}' not found in library")
+    
+    # Convert parameters to dict format
+    params_list = [
+        {
+            "name": p.name,
+            "type": p.type,
+            "default": p.default,
+            "description": p.description,
+            "min": p.min,
+            "max": p.max,
+            "step": p.step,
+            "choices": p.choices,
+        }
+        for p in strategy.parameters
+    ]
+    
+    return StrategyLibraryDetailResponse(
+        id=strategy.id,
+        name=strategy.name,
+        description=strategy.description,
+        category=strategy.category,
+        author=strategy.author,
+        version=strategy.version,
+        parameters=params_list,
+        documentation=strategy.documentation,
+        references=strategy.references,
+        tags=strategy.tags,
+        code=strategy.code,
+        uses_framework=strategy.uses_framework,
+        framework_components=strategy.framework_components
+    )
+
+
+@router.get("/library/{strategy_id}/code")
+async def get_library_strategy_code(strategy_id: str):
+    """Get strategy code from the library"""
+    if not STRATEGY_LIBRARY_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Strategy library not available")
+    
+    registry = get_registry()
+    strategy = registry.get_strategy(strategy_id)
+    
+    if not strategy:
+        raise HTTPException(status_code=404, detail=f"Strategy '{strategy_id}' not found in library")
+    
+    if not strategy.code:
+        raise HTTPException(status_code=404, detail=f"Code not available for strategy '{strategy_id}'")
+    
+    return {
+        "id": strategy.id,
+        "name": strategy.name,
+        "code": strategy.code
+    }

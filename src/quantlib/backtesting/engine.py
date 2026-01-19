@@ -10,6 +10,14 @@ from quantlib.backtesting.event import Event, MarketEvent, SignalEvent, OrderEve
 from quantlib.backtesting.broker import SimulatedBroker
 from quantlib.portfolio import Portfolio
 
+# Import AlgorithmFramework for type checking (optional dependency)
+try:
+    from quantlib.algorithm import AlgorithmFramework
+    FRAMEWORK_AVAILABLE = True
+except ImportError:
+    FRAMEWORK_AVAILABLE = False
+    AlgorithmFramework = None
+
 
 class BacktestEngine:
     """Event-driven backtesting engine"""
@@ -98,6 +106,11 @@ class BacktestEngine:
         self._event_counter = 0  # Reset event counter for tiebreaking
         self._all_symbols = set()  # Track all symbols encountered
         
+        # Check if strategy is AlgorithmFramework
+        is_framework = (FRAMEWORK_AVAILABLE and 
+                       AlgorithmFramework is not None and 
+                       isinstance(strategy, AlgorithmFramework))
+        
         # Initialize strategy
         if hasattr(strategy, 'initialize'):
             context = self._create_context()
@@ -114,33 +127,41 @@ class BacktestEngine:
             # Process events for this timestamp
             self._process_events()
             
-            # Call strategy
-            context = self._create_context()
-            if hasattr(strategy, 'on_data'):
-                strategy.on_data(context, bar.to_dict())
-            
-            # Update equity curve
-            # Build current prices dict (for now, assume single symbol or use bar Close for all)
-            current_prices = {}
+            # Update current_prices for context
             close_price = bar['Close']
-            
-            # For single symbol backtests, use the symbol
             if self._symbol:
-                current_prices[self._symbol] = close_price
+                self._current_prices = {self._symbol: close_price}
             else:
                 # Try to infer from portfolio positions
                 positions = self.portfolio.get_positions()
                 if positions:
-                    # Use first position's symbol
                     first_symbol = list(positions.keys())[0]
-                    current_prices[first_symbol] = close_price
+                    self._current_prices = {first_symbol: close_price}
                 else:
-                    # Fallback: if no positions, still track equity with placeholder
-                    # (This shouldn't happen in normal operation)
-                    if self._all_symbols:
-                        current_prices[list(self._all_symbols)[0]] = close_price
-                    else:
-                        current_prices['SYMBOL'] = close_price
+                    self._current_prices = {'SYMBOL': close_price}
+            
+            # Call strategy
+            context = self._create_context()
+            if is_framework:
+                # Framework expects multi-symbol data format
+                if self._symbol:
+                    framework_data = {
+                        self._symbol: pd.DataFrame([bar.to_dict()], index=[timestamp])
+                    }
+                else:
+                    # Use current prices keys
+                    symbol = list(self._current_prices.keys())[0]
+                    framework_data = {
+                        symbol: pd.DataFrame([bar.to_dict()], index=[timestamp])
+                    }
+                strategy.on_data(context, framework_data)
+            elif hasattr(strategy, 'on_data'):
+                # Traditional Strategy expects single bar dict
+                strategy.on_data(context, bar.to_dict())
+            
+            # Update equity curve
+            # Use current_prices that was set for context
+            current_prices = self._current_prices
             
             equity = self.portfolio.get_total_equity(current_prices)
             
@@ -159,11 +180,16 @@ class BacktestEngine:
     
     def _create_context(self):
         """Create context object for strategy"""
+        engine = self
+        
         class Context:
             def __init__(self, engine):
                 self.engine = engine
                 self.portfolio = engine.portfolio  # Use Portfolio instead of broker
                 self.current_time = engine.current_time
+                self.symbol = getattr(engine, '_symbol', None)
+                # Add current_prices for framework support
+                self.current_prices = getattr(engine, '_current_prices', {})
             
             def place_order(self, symbol: str, quantity: int, direction: str):
                 """Place an order"""
@@ -211,41 +237,45 @@ class BacktestEngine:
             
             elif isinstance(event, OrderEvent):
                 # Execute order
-                # Get current price from data
-                if self.current_time in self.data.index:
+                # Get current price from current_prices or data
+                symbol_upper = event.symbol.upper()
+                if hasattr(self, '_current_prices') and symbol_upper in self._current_prices:
+                    current_price = self._current_prices[symbol_upper]
+                elif self.current_time in self.data.index:
                     bar = self.data.loc[self.current_time]
                     current_price = bar['Close']
-                    
-                    # Calculate execution price and commission (broker is execution-only)
-                    execution_price, commission = self.broker.calculate_execution(
-                        event, current_price, self.current_time
-                    )
-                    
-                    # Check if we have enough cash/positions (validation)
-                    symbol_upper = event.symbol.upper()
-                    quantity = event.quantity
-                    
-                    if event.direction == 'BUY':
-                        total_cost = quantity * execution_price + commission
-                        if self.portfolio.get_cash() < total_cost:
-                            # Insufficient funds - skip this order
-                            continue
-                    else:  # SELL
-                        current_position = self.portfolio.get_position(symbol_upper)
-                        if current_position < quantity:
-                            # Insufficient position - skip this order
-                            continue
-                    
-                    # Create fill event
-                    fill = FillEvent(
-                        timestamp=self.current_time,
-                        symbol=event.symbol,
-                        quantity=quantity,
-                        direction=event.direction,
-                        price=execution_price,
-                        commission=commission
-                    )
-                    self._add_event(fill)
+                else:
+                    continue  # Skip if no price available
+                
+                # Calculate execution price and commission (broker is execution-only)
+                execution_price, commission = self.broker.calculate_execution(
+                    event, current_price, self.current_time
+                )
+                
+                # Check if we have enough cash/positions (validation)
+                quantity = event.quantity
+                
+                if event.direction == 'BUY':
+                    total_cost = quantity * execution_price + commission
+                    if self.portfolio.get_cash() < total_cost:
+                        # Insufficient funds - skip this order
+                        continue
+                else:  # SELL
+                    current_position = self.portfolio.get_position(symbol_upper)
+                    if current_position < quantity:
+                        # Insufficient position - skip this order
+                        continue
+                
+                # Create fill event
+                fill = FillEvent(
+                    timestamp=self.current_time,
+                    symbol=event.symbol,
+                    quantity=quantity,
+                    direction=event.direction,
+                    price=execution_price,
+                    commission=commission
+                )
+                self._add_event(fill)
             
             elif isinstance(event, FillEvent):
                 # Record trade in Portfolio and trades list

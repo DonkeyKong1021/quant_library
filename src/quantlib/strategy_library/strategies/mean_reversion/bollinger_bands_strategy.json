@@ -1,0 +1,36 @@
+{
+  "id": "bollinger_bands_strategy",
+  "name": "Bollinger Bands Mean Reversion Strategy",
+  "description": "A mean reversion strategy using Bollinger Bands. Buys when price touches the lower band (oversold) and sells when price touches the upper band (overbought).",
+  "category": "mean_reversion",
+  "author": "QuantLib",
+  "version": "1.0.0",
+  "parameters": [
+    {
+      "name": "bb_window",
+      "type": "int",
+      "default": 20,
+      "description": "Moving average period for Bollinger Bands",
+      "min": 1,
+      "max": 100,
+      "step": 1
+    },
+    {
+      "name": "bb_std",
+      "type": "float",
+      "default": 2.0,
+      "description": "Number of standard deviations for band width",
+      "min": 1.0,
+      "max": 5.0,
+      "step": 0.1
+    }
+  ],
+  "code_file": "bollinger_bands_strategy.py",
+  "documentation": "Bollinger Bands consist of a moving average with upper and lower bands based on standard deviation. This strategy assumes prices will revert to the mean when they touch the bands, making it a mean reversion approach.",
+  "references": [
+    "John Bollinger, 'Bollinger on Bollinger Bands'"
+  ],
+  "tags": ["bollinger-bands", "mean-reversion", "volatility", "oscillator"],
+  "uses_framework": false,
+  "framework_components": {}
+}

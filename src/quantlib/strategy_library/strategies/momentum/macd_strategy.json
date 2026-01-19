@@ -1,0 +1,45 @@
+{
+  "id": "macd_strategy",
+  "name": "MACD Crossover Strategy",
+  "description": "A momentum strategy using the MACD (Moving Average Convergence Divergence) indicator. Generates buy signals when the MACD line crosses above the signal line, and sell signals when it crosses below.",
+  "category": "momentum",
+  "author": "QuantLib",
+  "version": "1.0.0",
+  "parameters": [
+    {
+      "name": "macd_fast",
+      "type": "int",
+      "default": 12,
+      "description": "Fast EMA period for MACD",
+      "min": 1,
+      "max": 50,
+      "step": 1
+    },
+    {
+      "name": "macd_slow",
+      "type": "int",
+      "default": 26,
+      "description": "Slow EMA period for MACD",
+      "min": 1,
+      "max": 100,
+      "step": 1
+    },
+    {
+      "name": "macd_signal",
+      "type": "int",
+      "default": 9,
+      "description": "Signal line EMA period",
+      "min": 1,
+      "max": 50,
+      "step": 1
+    }
+  ],
+  "code_file": "macd_strategy.py",
+  "documentation": "The MACD indicator compares two moving averages to identify trend changes. When the MACD line crosses above the signal line, it indicates bullish momentum. When it crosses below, it indicates bearish momentum.",
+  "references": [
+    "Gerald Appel, 'Technical Analysis: Power Tools for Active Investors'"
+  ],
+  "tags": ["macd", "momentum", "crossover", "trend"],
+  "uses_framework": false,
+  "framework_components": {}
+}
