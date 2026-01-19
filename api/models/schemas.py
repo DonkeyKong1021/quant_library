@@ -276,3 +276,19 @@ class AIStrategyGenerateResponse(BaseModel):
     description: str
     error: Optional[str] = None
     message: Optional[str] = None
+
+
+class APIKeysRequest(BaseModel):
+    """Request to save API keys"""
+    alpha_vantage: Optional[str] = Field(None, description="Alpha Vantage API key")
+    polygon: Optional[str] = Field(None, description="Polygon.io API key")
+    openai: Optional[str] = Field(None, description="OpenAI API key")
+    anthropic: Optional[str] = Field(None, description="Anthropic API key")
+
+
+class APIKeysResponse(BaseModel):
+    """Response with API key status (masked - only shows if keys are set)"""
+    alpha_vantage_set: bool = Field(..., description="Whether Alpha Vantage key is set")
+    polygon_set: bool = Field(..., description="Whether Polygon.io key is set")
+    openai_set: bool = Field(..., description="Whether OpenAI key is set")
+    anthropic_set: bool = Field(..., description="Whether Anthropic key is set")

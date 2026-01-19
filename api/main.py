@@ -20,7 +20,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-from api.routers import database, data, backtest, strategies, indicators
+from api.routers import database, data, backtest, strategies, indicators, settings
 
 app = FastAPI(
     title="QuantLib API",
@@ -48,6 +48,7 @@ app.include_router(data.router, prefix="/api/data", tags=["data"])
 app.include_router(backtest.router, prefix="/api/backtest", tags=["backtest"])
 app.include_router(strategies.router, prefix="/api/strategies", tags=["strategies"])
 app.include_router(indicators.router, prefix="/api/indicators", tags=["indicators"])
+app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 
 
 @app.get("/")

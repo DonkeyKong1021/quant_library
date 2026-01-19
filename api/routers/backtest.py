@@ -1397,29 +1397,9 @@ class AIInsightsResponse(BaseModel):
 
 
 def _get_ai_client():
-    """Get an AI client based on available API keys."""
-    import os
-    
-    openai_key = os.getenv("OPENAI_API_KEY")
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    
-    if openai_key:
-        try:
-            from openai import OpenAI
-            return OpenAI(api_key=openai_key), "openai"
-        except ImportError:
-            logger.warning("OpenAI package not installed")
-            return None, None
-    
-    if anthropic_key:
-        try:
-            import anthropic
-            return anthropic.Anthropic(api_key=anthropic_key), "anthropic"
-        except ImportError:
-            logger.warning("Anthropic package not installed")
-            return None, None
-    
-    return None, None
+    """Get an AI client based on available API keys (from storage or env vars)."""
+    from api.utils.ai_client import get_ai_client
+    return get_ai_client()
 
 
 def _build_metrics_summary(

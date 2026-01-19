@@ -20,12 +20,14 @@ import {
   Tab,
   TextField,
   InputAdornment,
+  CircularProgress,
+  Alert,
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { useThemeMode } from '../contexts/ThemeContext'
 import { chartLibraryStorage } from '../utils/chartLibraryStorage'
 import { dataSourceStorage } from '../utils/dataSourceStorage'
-import { apiKeyStorage } from '../utils/apiKeyStorage'
+import { settingsService } from '../services/settingsService'
 import CloseIcon from '@mui/icons-material/Close'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import NotificationsIcon from '@mui/icons-material/Notifications'
@@ -55,27 +57,64 @@ export default function SettingsModal({ open, onClose }) {
   const [chartLibrary, setChartLibrary] = useState(() => chartLibraryStorage.get())
   
   // API keys state
-  const [apiKeys, setApiKeys] = useState(() => apiKeyStorage.getAll())
+  const [apiKeys, setApiKeys] = useState({
+    alpha_vantage: '',
+    polygon: '',
+    openai: '',
+    anthropic: '',
+  })
+  const [apiKeysSet, setApiKeysSet] = useState({
+    alpha_vantage: false,
+    polygon: false,
+    openai: false,
+    anthropic: false,
+  })
   const [showApiKeys, setShowApiKeys] = useState({
     alpha_vantage: false,
     polygon: false,
     openai: false,
     anthropic: false,
   })
+  const [loadingKeys, setLoadingKeys] = useState(false)
+  const [savingKeys, setSavingKeys] = useState(false)
+  const [keysError, setKeysError] = useState(null)
 
   // Load settings on mount
   useEffect(() => {
     if (open) {
-      setApiKeys(apiKeyStorage.getAll())
       setDefaultDataSource(dataSourceStorage.get())
       setChartLibrary(chartLibraryStorage.get())
+      loadAPIKeys()
     }
   }, [open])
 
-  const handleSave = () => {
-    // Save API keys
-    apiKeyStorage.setAll(apiKeys)
-    
+  const loadAPIKeys = async () => {
+    setLoadingKeys(true)
+    setKeysError(null)
+    try {
+      const response = await settingsService.getAPIKeys()
+      setApiKeysSet({
+        alpha_vantage: response.alpha_vantage_set,
+        polygon: response.polygon_set,
+        openai: response.openai_set,
+        anthropic: response.anthropic_set,
+      })
+      // Initialize keys as empty (we can't retrieve actual values for security)
+      setApiKeys({
+        alpha_vantage: '',
+        polygon: '',
+        openai: '',
+        anthropic: '',
+      })
+    } catch (error) {
+      console.error('Error loading API keys:', error)
+      setKeysError('Failed to load API keys. Please try again.')
+    } finally {
+      setLoadingKeys(false)
+    }
+  }
+
+  const handleSave = async () => {
     // Save data source
     dataSourceStorage.set(defaultDataSource)
     
@@ -87,7 +126,25 @@ export default function SettingsModal({ open, onClose }) {
     // Chart library is saved on change, but ensure it's saved here too
     chartLibraryStorage.set(chartLibrary)
     
-    onClose()
+    // Save API keys to backend
+    setSavingKeys(true)
+    setKeysError(null)
+    try {
+      // Only send keys that have been changed (non-empty values)
+      const keysToSave = {}
+      if (apiKeys.alpha_vantage) keysToSave.alpha_vantage = apiKeys.alpha_vantage
+      if (apiKeys.polygon) keysToSave.polygon = apiKeys.polygon
+      if (apiKeys.openai) keysToSave.openai = apiKeys.openai
+      if (apiKeys.anthropic) keysToSave.anthropic = apiKeys.anthropic
+      
+      await settingsService.saveAPIKeys(keysToSave)
+      await loadAPIKeys() // Reload to update status
+      onClose()
+    } catch (error) {
+      console.error('Error saving API keys:', error)
+      setKeysError('Failed to save API keys. Please try again.')
+      setSavingKeys(false)
+    }
   }
 
   const handleApiKeyChange = (key, value) => {
@@ -96,6 +153,10 @@ export default function SettingsModal({ open, onClose }) {
 
   const toggleApiKeyVisibility = (key) => {
     setShowApiKeys((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+  
+  const getApiKeyPlaceholder = (keyType) => {
+    return apiKeysSet[keyType] ? '•••••••• (key is set)' : 'Enter API key'
   }
 
   return (
@@ -310,138 +371,154 @@ export default function SettingsModal({ open, onClose }) {
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
                 API Keys
               </Typography>
-              <Box
-                sx={{
-                  p: 2,
-                  borderRadius: 2,
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 2.5,
-                }}
-              >
-                {/* Alpha Vantage API Key */}
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Alpha Vantage API Key"
-                  type={showApiKeys.alpha_vantage ? 'text' : 'password'}
-                  value={apiKeys.alpha_vantage}
-                  onChange={(e) => handleApiKeyChange('alpha_vantage', e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <VpnKeyIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          size="small"
-                          onClick={() => toggleApiKeyVisibility('alpha_vantage')}
-                          edge="end"
-                        >
-                          {showApiKeys.alpha_vantage ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
+              {loadingKeys ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : (
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2.5,
                   }}
-                  helperText="Required for Alpha Vantage data source"
-                />
+                >
+                  {keysError && (
+                    <Alert severity="error" sx={{ mb: 1 }} onClose={() => setKeysError(null)}>
+                      {keysError}
+                    </Alert>
+                  )}
 
-                {/* Polygon API Key */}
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Polygon.io API Key"
-                  type={showApiKeys.polygon ? 'text' : 'password'}
-                  value={apiKeys.polygon}
-                  onChange={(e) => handleApiKeyChange('polygon', e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <VpnKeyIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          size="small"
-                          onClick={() => toggleApiKeyVisibility('polygon')}
-                          edge="end"
-                        >
-                          {showApiKeys.polygon ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                  helperText="Required for Polygon.io data source"
-                />
+                  {/* Alpha Vantage API Key */}
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Alpha Vantage API Key"
+                    type={showApiKeys.alpha_vantage ? 'text' : 'password'}
+                    value={apiKeys.alpha_vantage}
+                    onChange={(e) => handleApiKeyChange('alpha_vantage', e.target.value)}
+                    placeholder={getApiKeyPlaceholder('alpha_vantage')}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <VpnKeyIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => toggleApiKeyVisibility('alpha_vantage')}
+                            edge="end"
+                          >
+                            {showApiKeys.alpha_vantage ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    helperText="Required for Alpha Vantage data source"
+                  />
 
-                {/* OpenAI API Key */}
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="OpenAI API Key"
-                  type={showApiKeys.openai ? 'text' : 'password'}
-                  value={apiKeys.openai}
-                  onChange={(e) => handleApiKeyChange('openai', e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <VpnKeyIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          size="small"
-                          onClick={() => toggleApiKeyVisibility('openai')}
-                          edge="end"
-                        >
-                          {showApiKeys.openai ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                  helperText="Required for AI-powered features (strategy generation, insights)"
-                />
+                  {/* Polygon API Key */}
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Polygon.io API Key"
+                    type={showApiKeys.polygon ? 'text' : 'password'}
+                    value={apiKeys.polygon}
+                    onChange={(e) => handleApiKeyChange('polygon', e.target.value)}
+                    placeholder={getApiKeyPlaceholder('polygon')}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <VpnKeyIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => toggleApiKeyVisibility('polygon')}
+                            edge="end"
+                          >
+                            {showApiKeys.polygon ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    helperText="Required for Polygon.io data source"
+                  />
 
-                {/* Anthropic API Key */}
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Anthropic API Key"
-                  type={showApiKeys.anthropic ? 'text' : 'password'}
-                  value={apiKeys.anthropic}
-                  onChange={(e) => handleApiKeyChange('anthropic', e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <VpnKeyIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          size="small"
-                          onClick={() => toggleApiKeyVisibility('anthropic')}
-                          edge="end"
-                        >
-                          {showApiKeys.anthropic ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                  helperText="Alternative to OpenAI for AI-powered features"
-                />
+                  {/* OpenAI API Key */}
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="OpenAI API Key"
+                    type={showApiKeys.openai ? 'text' : 'password'}
+                    value={apiKeys.openai}
+                    onChange={(e) => handleApiKeyChange('openai', e.target.value)}
+                    placeholder={getApiKeyPlaceholder('openai')}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <VpnKeyIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => toggleApiKeyVisibility('openai')}
+                            edge="end"
+                          >
+                            {showApiKeys.openai ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    helperText="Required for AI-powered features (strategy generation, insights)"
+                  />
 
-                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mt: 1 }}>
-                  API keys are stored locally in your browser and never shared.
-                </Typography>
-              </Box>
+                  {/* Anthropic API Key */}
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Anthropic API Key"
+                    type={showApiKeys.anthropic ? 'text' : 'password'}
+                    value={apiKeys.anthropic}
+                    onChange={(e) => handleApiKeyChange('anthropic', e.target.value)}
+                    placeholder={getApiKeyPlaceholder('anthropic')}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <VpnKeyIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => toggleApiKeyVisibility('anthropic')}
+                            edge="end"
+                          >
+                            {showApiKeys.anthropic ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    helperText="Alternative to OpenAI for AI-powered features"
+                  />
+
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mt: 1 }}>
+                    API keys are encrypted and stored securely on the server. Leave fields empty to keep existing keys unchanged.
+                  </Typography>
+                </Box>
+              )}
             </Box>
           )}
 
@@ -491,17 +568,25 @@ export default function SettingsModal({ open, onClose }) {
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 3 }}>
-        <Button onClick={onClose} variant="outlined">
+        <Button onClick={onClose} variant="outlined" disabled={savingKeys}>
           Cancel
         </Button>
         <Button
           onClick={handleSave}
           variant="contained"
+          disabled={savingKeys}
           sx={{
             background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
           }}
         >
-          Save Settings
+          {savingKeys ? (
+            <>
+              <CircularProgress size={16} sx={{ mr: 1 }} />
+              Saving...
+            </>
+          ) : (
+            'Save Settings'
+          )}
         </Button>
       </DialogActions>
     </Dialog>
