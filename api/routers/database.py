@@ -3,7 +3,9 @@ Database status and statistics endpoints
 """
 
 import sys
+import json
 from pathlib import Path
+from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException
 
 # Add project root to path
@@ -13,8 +15,9 @@ if str(project_root) not in sys.path:
 
 from quantlib.data import DataStore
 from quantlib.data.database import verify_connection, create_database_engine, get_database_url
+from quantlib.data.fetcher_registry import get_registry
 from sqlalchemy import text
-from api.models.schemas import DatabaseStatusResponse, DatabaseStatisticsResponse
+from api.models.schemas import DatabaseStatusResponse, DatabaseStatisticsResponse, DatabaseBatchUpdateResponse
 
 router = APIRouter()
 
@@ -106,3 +109,95 @@ async def get_database_statistics():
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching statistics: {str(e)}")
+
+
+@router.post("/update-all", response_model=DatabaseBatchUpdateResponse)
+async def update_all_tickers():
+    """Update database with all tickers from tickers.json using yfinance"""
+    try:
+        # Load tickers from tickers.json
+        tickers_file = project_root / "tickers.json"
+        if not tickers_file.exists():
+            raise HTTPException(status_code=404, detail="tickers.json file not found")
+        
+        with open(tickers_file, 'r') as f:
+            tickers_data = json.load(f)
+        
+        # Flatten tickers from all sectors
+        all_tickers = []
+        for sector, tickers in tickers_data.items():
+            all_tickers.extend(tickers)
+        
+        # Remove duplicates and sort
+        unique_tickers = sorted(list(set(ticker.upper() for ticker in all_tickers)))
+        
+        if not unique_tickers:
+            return DatabaseBatchUpdateResponse(
+                success=False,
+                total_tickers=0,
+                successful=0,
+                failed=0,
+                skipped=0,
+                message="No tickers found in tickers.json"
+            )
+        
+        # Calculate date range (10 years)
+        today = datetime.now().date()
+        REASONABLE_MAX_DATE = datetime(2026, 1, 1).date()
+        if today > REASONABLE_MAX_DATE:
+            today = REASONABLE_MAX_DATE
+        
+        end_date = (today - timedelta(days=1)).strftime('%Y-%m-%d')
+        start_date = (today - timedelta(days=365 * 10)).strftime('%Y-%m-%d')
+        
+        # Initialize store and fetcher
+        store = DataStore()
+        registry = get_registry()
+        fetcher = registry.create(source='yahoo')  # Use yfinance
+        
+        # Process tickers
+        successful = 0
+        failed = 0
+        skipped = 0
+        
+        for ticker in unique_tickers:
+            try:
+                # Skip if already exists (to avoid re-fetching)
+                if store.exists(ticker):
+                    skipped += 1
+                    continue
+                
+                # Fetch data
+                data = fetcher.fetch_ohlcv(symbol=ticker, start=start_date, end=end_date)
+                
+                if data is None or data.empty:
+                    failed += 1
+                    continue
+                
+                # Save to database
+                store.save(ticker, data)
+                
+                # Verify save
+                if store.exists(ticker):
+                    successful += 1
+                else:
+                    failed += 1
+                    
+            except Exception as e:
+                # Log error but continue with other tickers
+                print(f"Error processing {ticker}: {str(e)}")
+                failed += 1
+        
+        return DatabaseBatchUpdateResponse(
+            success=True,
+            total_tickers=len(unique_tickers),
+            successful=successful,
+            failed=failed,
+            skipped=skipped,
+            message=f"Processed {len(unique_tickers)} tickers: {successful} successful, {failed} failed, {skipped} skipped"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating database: {str(e)}")

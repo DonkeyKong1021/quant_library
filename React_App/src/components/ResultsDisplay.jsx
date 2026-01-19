@@ -122,10 +122,7 @@ export default function ResultsDisplay({
 
   return (
     <Paper sx={{ p: 4, elevation: 1 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Backtest Results
-        </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, mt: -2 }}>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           <TextField
             label="Backtest Name"

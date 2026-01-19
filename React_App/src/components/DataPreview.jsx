@@ -2,8 +2,9 @@ import { Paper, Typography, Box, Grid, Chip, Table, TableBody, TableCell, TableC
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
+import StepHeader from './common/StepHeader'
 
-export default function DataPreview({ data, metadata, cached, symbol }) {
+export default function DataPreview({ data, metadata, cached, symbol, stepNumber = 2, stepStatus = 'pending' }) {
   if (!data || data.length === 0) {
     return null
   }
@@ -18,10 +19,13 @@ export default function DataPreview({ data, metadata, cached, symbol }) {
 
   return (
     <Paper sx={{ p: 3, mt: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Data Summary
-        </Typography>
+      <StepHeader 
+        stepNumber={stepNumber} 
+        label="Data Summary" 
+        status={stepStatus}
+        showConnector={false}
+      />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, mt: -2 }}>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {cached && (
             <Chip

@@ -13,7 +13,6 @@ import {
   Checkbox,
   Divider,
 } from '@mui/material'
-
 export default function BacktestConfig({ onConfigChanged }) {
   const [initialCapital, setInitialCapital] = useState(100000)
   const [commission, setCommission] = useState(1.0)
@@ -33,14 +32,11 @@ export default function BacktestConfig({ onConfigChanged }) {
         benchmark_symbol: benchmarkSymbol,
       })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCapital, commission, slippage, commissionType, useBenchmark, benchmarkSymbol])
 
   return (
     <Paper sx={{ p: 4, elevation: 1 }}>
-      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
-        Backtest Configuration
-      </Typography>
-
       <Grid container spacing={3}>
         <Grid item xs={12} md={4}>
           <TextField

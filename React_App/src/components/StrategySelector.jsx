@@ -17,7 +17,6 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useQuery } from '@tanstack/react-query'
 import { strategyService } from '../services/backtestService'
 import { strategyStorage } from '../utils/strategyStorage'
-
 export default function StrategySelector({ onStrategySelected, initialCustomStrategyId, initialParams }) {
   const [strategyType, setStrategyType] = useState('moving_average')
   const [params, setParams] = useState(initialParams || {})
@@ -113,9 +112,6 @@ export default function StrategySelector({ onStrategySelected, initialCustomStra
 
   return (
     <Paper sx={{ p: 4, elevation: 1 }}>
-      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
-        Select Strategy
-      </Typography>
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>

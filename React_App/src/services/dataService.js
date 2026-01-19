@@ -17,6 +17,11 @@ export const dataService = {
     return response.data
   },
 
+  async updateAllTickers() {
+    const response = await api.post('/api/database/update-all')
+    return response.data
+  },
+
   // Enhanced symbol endpoints
   async getAllSymbols() {
     const response = await api.get('/api/data/symbols/all')

@@ -23,6 +23,15 @@ class DatabaseStatisticsResponse(BaseModel):
     total_size_gb: Optional[float] = None
 
 
+class DatabaseBatchUpdateResponse(BaseModel):
+    success: bool
+    total_tickers: int
+    successful: int
+    failed: int
+    skipped: int
+    message: str
+
+
 class DataFetchRequest(BaseModel):
     symbol: str = Field(..., description="Stock symbol (e.g., AAPL)")
     start_date: str = Field(..., description="Start date (YYYY-MM-DD)")

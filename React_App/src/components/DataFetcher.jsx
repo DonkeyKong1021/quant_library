@@ -292,10 +292,6 @@ export default function DataFetcher({ onDataFetched }) {
         }}
         elevation={0}
       >
-        <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
-          Fetch Market Data
-        </Typography>
-
         <AnimatePresence>
           {error && (
             <motion.div
@@ -310,9 +306,9 @@ export default function DataFetcher({ onDataFetched }) {
           )}
         </AnimatePresence>
 
-        <Grid container spacing={2.5}>
-          {/* Symbol Selection */}
-          <Grid item xs={12} md={4}>
+        <Grid container spacing={2}>
+          {/* Row 1: Symbol, Date Range, and Fetch Button */}
+          <Grid item xs={12} sm={12} md={3.5}>
             <Autocomplete
               freeSolo
               options={symbolOptions}
@@ -377,7 +373,7 @@ export default function DataFetcher({ onDataFetched }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
                   <Typography variant="caption" color="success.main" fontWeight={500}>
                     Available in database
@@ -387,23 +383,20 @@ export default function DataFetcher({ onDataFetched }) {
             )}
           </Grid>
 
-          {/* Date Range */}
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="Start Date"
-              type="date"
-              value={startDate ? startDate.toISOString().split('T')[0] : ''}
-              onChange={(e) => {
-                setStartDate(new Date(e.target.value))
-                setSelectedPreset('')
-              }}
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-
-          <Grid item xs={12} md={3}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+          <Grid item xs={12} sm={12} md={5.5}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <TextField
+                label="Start Date"
+                type="date"
+                value={startDate ? startDate.toISOString().split('T')[0] : ''}
+                onChange={(e) => {
+                  setStartDate(new Date(e.target.value))
+                  setSelectedPreset('')
+                }}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                size="small"
+              />
               <TextField
                 label="End Date"
                 type="date"
@@ -414,6 +407,7 @@ export default function DataFetcher({ onDataFetched }) {
                 }}
                 fullWidth
                 InputLabelProps={{ shrink: true }}
+                size="small"
               />
               {symbolMetadata && symbolMetadata.available_date_range && (
                 <Tooltip title="Set to maximum available date range" arrow>
@@ -421,7 +415,7 @@ export default function DataFetcher({ onDataFetched }) {
                     onClick={handleMaxDateRange}
                     size="small"
                     sx={{
-                      mt: 1,
+                      mt: '4px',
                       backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
                       '&:hover': {
                         backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
@@ -435,8 +429,7 @@ export default function DataFetcher({ onDataFetched }) {
             </Box>
           </Grid>
 
-          {/* Fetch Button */}
-          <Grid item xs={12} md={2}>
+          <Grid item xs={12} sm={12} md={3}>
             <Button
               component={motion.button}
               whileHover={{ scale: 1.02 }}
@@ -446,7 +439,7 @@ export default function DataFetcher({ onDataFetched }) {
               onClick={handleFetch}
               disabled={loading}
               sx={{
-                height: '56px',
+                height: '40px',
                 fontSize: '0.9375rem',
                 fontWeight: 600,
                 background: fetchSuccess
@@ -462,13 +455,12 @@ export default function DataFetcher({ onDataFetched }) {
                     : '0 4px 16px rgba(37, 99, 235, 0.4)',
                 },
               }}
-              size="large"
             >
               {loading ? (
-                <CircularProgress size={24} color="inherit" />
+                <CircularProgress size={20} color="inherit" />
               ) : fetchSuccess ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CheckCircleIcon sx={{ fontSize: 20 }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <CheckCircleIcon sx={{ fontSize: 18 }} />
                   Done
                 </Box>
               ) : (
@@ -477,9 +469,9 @@ export default function DataFetcher({ onDataFetched }) {
             </Button>
           </Grid>
 
-          {/* Interval Selector */}
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
+          {/* Row 2: Interval, Quick Date Ranges, Cache Options, Data Source, and Info */}
+          <Grid item xs={12} sm={6} md={2.5}>
+            <FormControl fullWidth size="small">
               <InputLabel>Interval</InputLabel>
               <Select value={interval} label="Interval" onChange={(e) => setInterval(e.target.value)}>
                 <MenuItem value="1d">Daily (1d)</MenuItem>
@@ -494,9 +486,8 @@ export default function DataFetcher({ onDataFetched }) {
             </FormControl>
           </Grid>
 
-          {/* Date Presets */}
-          <Grid item xs={12} md={4}>
-            <FormControl size="small" fullWidth>
+          <Grid item xs={12} sm={6} md={2.5}>
+            <FormControl fullWidth size="small">
               <InputLabel>Quick Date Ranges</InputLabel>
               <Select
                 value={selectedPreset}
@@ -530,14 +521,21 @@ export default function DataFetcher({ onDataFetched }) {
             </FormControl>
           </Grid>
 
-          {/* Cache Options and Data Source */}
-          <Grid item xs={12} md={8}>
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Grid item xs={12} sm={12} md={7}>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1.5,
+                alignItems: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
               <FormControlLabel
                 control={
                   <Checkbox
                     checked={useCache}
                     onChange={(e) => setUseCache(e.target.checked)}
+                    size="small"
                     sx={{
                       '&.Mui-checked': {
                         color: 'primary.main',
@@ -553,6 +551,7 @@ export default function DataFetcher({ onDataFetched }) {
                     checked={forceRefresh}
                     onChange={(e) => setForceRefresh(e.target.checked)}
                     disabled={!useCache}
+                    size="small"
                     sx={{
                       '&.Mui-checked': {
                         color: 'warning.main',
@@ -566,7 +565,7 @@ export default function DataFetcher({ onDataFetched }) {
                   </Typography>
                 }
               />
-              <FormControl size="small" sx={{ minWidth: 150 }}>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
                 <InputLabel>Data Source</InputLabel>
                 <Select
                   value={dataSource}
@@ -586,12 +585,13 @@ export default function DataFetcher({ onDataFetched }) {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 0.5,
-                    px: 1.5,
-                    py: 0.5,
+                    px: 1.25,
+                    py: 0.375,
                     borderRadius: 1.5,
                     backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(37, 99, 235, 0.06)',
                     border: '1px solid',
                     borderColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(37, 99, 235, 0.12)',
+                    ml: 'auto',
                   }}
                 >
                   <InfoIcon sx={{ fontSize: 14, color: 'primary.main' }} />
@@ -605,6 +605,30 @@ export default function DataFetcher({ onDataFetched }) {
           </Grid>
         </Grid>
       </Paper>
+
+      {/* Connecting line from step 1 to step 2 */}
+      {fetchedData && fetchedData.length > 0 && (
+        <Box
+          sx={{
+            position: 'relative',
+            height: 16,
+            mt: -1,
+            mb: -1,
+          }}
+        >
+          <Box
+            sx={{
+              position: 'absolute',
+              left: 20,
+              top: 0,
+              width: 2,
+              height: '100%',
+              backgroundColor: 'success.main',
+              zIndex: 0,
+            }}
+          />
+        </Box>
+      )}
 
       {/* Data Preview */}
       <AnimatePresence>
@@ -620,6 +644,8 @@ export default function DataFetcher({ onDataFetched }) {
               metadata={symbolMetadata}
               cached={dataCached}
               symbol={symbol.toUpperCase()}
+              stepNumber={2}
+              stepStatus={fetchedData ? 'completed' : 'pending'}
             />
           </motion.div>
         )}
