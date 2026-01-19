@@ -4,7 +4,6 @@ import {
   Typography,
   Card,
   CardContent,
-  CardActionArea,
   Grid,
   Chip,
   Dialog,
@@ -44,8 +43,10 @@ export default function StrategyTemplates({ onSelectTemplate }) {
           {templates.map((template) => (
             <Grid item xs={12} sm={6} key={template.id}>
               <Card
+                onClick={() => handleTemplateClick(template)}
                 sx={{
                   height: '100%',
+                  cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   '&:hover': {
                     transform: 'translateY(-2px)',
@@ -53,35 +54,33 @@ export default function StrategyTemplates({ onSelectTemplate }) {
                   },
                 }}
               >
-                <CardActionArea onClick={() => handleTemplateClick(template)}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5, gap: 1 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
-                        {template.name}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handlePreviewClick(e, template)}
-                          sx={{ p: 0.5 }}
-                          title="Preview code"
-                        >
-                          <PreviewIcon fontSize="small" />
-                        </IconButton>
-                        <Chip 
-                          label="Template" 
-                          size="small" 
-                          color="primary" 
-                          variant="outlined"
-                          sx={{ flexShrink: 0 }}
-                        />
-                      </Box>
-                    </Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                      {template.description}
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5, gap: 1 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
+                      {template.name}
                     </Typography>
-                  </CardContent>
-                </CardActionArea>
+                    <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handlePreviewClick(e, template)}
+                        sx={{ p: 0.5 }}
+                        title="Preview code"
+                      >
+                        <PreviewIcon fontSize="small" />
+                      </IconButton>
+                      <Chip 
+                        label="Template" 
+                        size="small" 
+                        color="primary" 
+                        variant="outlined"
+                        sx={{ flexShrink: 0 }}
+                      />
+                    </Box>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                    {template.description}
+                  </Typography>
+                </CardContent>
               </Card>
             </Grid>
           ))}

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -11,12 +12,15 @@ import {
   Tooltip,
   CircularProgress,
   Alert,
+  Chip,
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload'
 import StorageIcon from '@mui/icons-material/Storage'
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import { useThemeMode } from '../contexts/ThemeContext'
 import { CountUpSimple } from './common'
+import DatabaseSelectorModal from './DatabaseSelectorModal'
 import ListIcon from '@mui/icons-material/List'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import BarChartIcon from '@mui/icons-material/BarChart'
@@ -75,6 +79,16 @@ const formatRelativeTime = (dateString) => {
   }
 }
 
+const getDatabaseDisplayName = (source) => {
+  if (!source) return 'Unknown'
+  const sourceLower = source.toLowerCase()
+  if (sourceLower.includes('yahoo')) return 'Yahoo Finance'
+  if (sourceLower.includes('alpha')) return 'Alpha Vantage'
+  if (sourceLower.includes('polygon')) return 'Polygon.io'
+  if (sourceLower.includes('default')) return 'Default'
+  return source
+}
+
 export default function DatabaseStatsModal({ 
   open, 
   onClose, 
@@ -82,11 +96,25 @@ export default function DatabaseStatsModal({
   dbStatus,
   onUpdateAll,
   updating,
-  updateMessage 
-}) {
+  updateMessage,
+  currentDatabase,
+  onSelectDatabase,
+  onDatabaseChange,
+} ) {
   const { isDark } = useThemeMode()
+  const [selectorOpen, setSelectorOpen] = useState(false)
 
   if (!dbStats) return null
+
+  const handleDatabaseSwitch = (dbSource) => {
+    if (onSelectDatabase) {
+      onSelectDatabase(dbSource)
+    }
+    if (onDatabaseChange) {
+      onDatabaseChange(dbSource)
+    }
+    setSelectorOpen(false)
+  }
 
   return (
     <Dialog
@@ -114,11 +142,45 @@ export default function DatabaseStatsModal({
           pb: 2,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
           <StorageIcon sx={{ fontSize: 24, color: 'primary.main' }} />
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Database Statistics
-          </Typography>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Database Statistics
+            </Typography>
+            {currentDatabase && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                <Chip
+                  label={getDatabaseDisplayName(currentDatabase)}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    backgroundColor: isDark ? 'rgba(76, 175, 80, 0.2)' : 'rgba(76, 175, 80, 0.1)',
+                    color: isDark ? '#81c784' : '#4caf50',
+                    border: `1px solid ${isDark ? 'rgba(76, 175, 80, 0.3)' : 'rgba(76, 175, 80, 0.2)'}`,
+                  }}
+                />
+                <Tooltip title="Switch database">
+                  <IconButton
+                    size="small"
+                    onClick={() => setSelectorOpen(true)}
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      color: 'primary.main',
+                      '&:hover': {
+                        backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.08)',
+                      },
+                    }}
+                  >
+                    <SwapHorizIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            )}
+          </Box>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {onUpdateAll && (
@@ -281,6 +343,14 @@ export default function DatabaseStatsModal({
           Close
         </Button>
       </DialogActions>
+
+      {/* Database Selector Modal */}
+      <DatabaseSelectorModal
+        open={selectorOpen}
+        onClose={() => setSelectorOpen(false)}
+        onSelectDatabase={handleDatabaseSwitch}
+        currentDatabase={currentDatabase}
+      />
     </Dialog>
   )
 }

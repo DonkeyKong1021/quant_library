@@ -27,6 +27,8 @@ import { AnimatedCard, CountUpSimple, StaggerContainer, StaggerItem } from '../c
 import { DashboardCardSkeleton } from '../components/Skeletons'
 import PerformanceDetailsModal from '../components/PerformanceDetailsModal'
 import DatabaseStatsModal from '../components/DatabaseStatsModal'
+import DatabaseSelectorModal from '../components/DatabaseSelectorModal'
+import { databaseStorage } from '../utils/databaseStorage'
 import StrategyPerformanceModal from '../components/StrategyPerformanceModal'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import StorageIcon from '@mui/icons-material/Storage'
@@ -171,7 +173,15 @@ export default function Dashboard() {
   // Modal states
   const [performanceModalOpen, setPerformanceModalOpen] = useState(false)
   const [databaseModalOpen, setDatabaseModalOpen] = useState(false)
+  const [databaseSelectorOpen, setDatabaseSelectorOpen] = useState(false)
   const [strategyModalOpen, setStrategyModalOpen] = useState(false)
+  const [currentDatabase, setCurrentDatabase] = useState(() => {
+    try {
+      return localStorage.getItem('quantlib_selected_database') || 'yahoo'
+    } catch {
+      return 'yahoo'
+    }
+  })
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -557,6 +567,7 @@ export default function Dashboard() {
                       ? 'rgba(248, 113, 113, 0.2)'
                       : 'rgba(239, 68, 68, 0.15)',
                 }}
+                onClick={() => setDatabaseSelectorOpen(true)}
                 contentSx={{ p: 3.5, display: 'flex', flexDirection: 'column', height: '100%' }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
@@ -972,6 +983,30 @@ export default function Dashboard() {
         onUpdateAll={handleUpdateAllTickers}
         updating={updating}
         updateMessage={updateMessage}
+        currentDatabase={currentDatabase}
+        onSelectDatabase={(dbSource) => {
+          setCurrentDatabase(dbSource)
+          databaseStorage.set(dbSource)
+        }}
+        onDatabaseChange={(dbSource) => {
+          // Refresh dashboard data after database change
+          const fetchDashboardData = async () => {
+            try {
+              const [status, stats] = await Promise.all([
+                dataService.getDatabaseStatus().catch((err) => {
+                  console.error('Database status error:', err)
+                  return { connected: false, message: err.message || 'Connection failed' }
+                }),
+                dataService.getDatabaseStatistics().catch(() => null),
+              ])
+              setDbStatus(status)
+              setDbStats(stats)
+            } catch (err) {
+              console.error('Dashboard data fetch error:', err)
+            }
+          }
+          fetchDashboardData()
+        }}
       />
       
       <StrategyPerformanceModal
@@ -980,6 +1015,33 @@ export default function Dashboard() {
         strategyStats={strategyStats}
         symbolStats={symbolStats}
         strategyPerformanceData={strategyPerformanceData}
+      />
+      
+      <DatabaseSelectorModal
+        open={databaseSelectorOpen}
+        onClose={() => setDatabaseSelectorOpen(false)}
+        onSelectDatabase={(dbSource) => {
+          setCurrentDatabase(dbSource)
+          databaseStorage.set(dbSource)
+          // Refresh dashboard data after database change
+          const fetchDashboardData = async () => {
+            try {
+              const [status, stats] = await Promise.all([
+                dataService.getDatabaseStatus().catch((err) => {
+                  console.error('Database status error:', err)
+                  return { connected: false, message: err.message || 'Connection failed' }
+                }),
+                dataService.getDatabaseStatistics().catch(() => null),
+              ])
+              setDbStatus(status)
+              setDbStats(stats)
+            } catch (err) {
+              console.error('Dashboard data fetch error:', err)
+            }
+          }
+          fetchDashboardData()
+        }}
+        currentDatabase={currentDatabase}
       />
     </Container>
   )

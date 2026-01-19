@@ -177,10 +177,13 @@ export function shouldUseWebGL(dataLength, threshold = 500) {
  * @param {string} baseType - Base chart type ('scatter', 'bar', etc.)
  * @param {number} dataLength - Number of data points
  * @returns {string} Chart type to use (e.g., 'scattergl' for large datasets)
+ * 
+ * NOTE: scattergl is temporarily disabled due to Vite bundling issues with plotly.js
  */
 export function getOptimalChartType(baseType, dataLength) {
-  if (baseType === 'scatter' && shouldUseWebGL(dataLength)) {
-    return 'scattergl'
-  }
+  // Temporarily disable scattergl due to plotly.js bundling issues with Vite
+  // if (baseType === 'scatter' && shouldUseWebGL(dataLength)) {
+  //   return 'scattergl'
+  // }
   return baseType
 }

@@ -31,6 +31,7 @@ import LightModeIcon from '@mui/icons-material/LightMode'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import PersonIcon from '@mui/icons-material/Person'
 import SettingsIcon from '@mui/icons-material/Settings'
+import StorageIcon from '@mui/icons-material/Storage'
 import LogoutIcon from '@mui/icons-material/Logout'
 import HistoryIcon from '@mui/icons-material/History'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
@@ -41,8 +42,10 @@ import { navigationItems } from '../config/navigation'
 import QuickNav from './QuickNav'
 import ProfileModal from './ProfileModal'
 import SettingsModal from './SettingsModal'
+import DatabaseSelectorModal from './DatabaseSelectorModal'
 import { useThemeMode } from '../contexts/ThemeContext'
 import { backtestService } from '../services/backtestService'
+import { databaseStorage } from '../utils/databaseStorage'
 
 // Create menu items with icon components
 const menuItems = navigationItems.map((item) => ({
@@ -78,6 +81,8 @@ export default function Header() {
   const [quickNavOpen, setQuickNavOpen] = useState(false)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+  const [databaseSelectorOpen, setDatabaseSelectorOpen] = useState(false)
+  const [currentDatabase, setCurrentDatabase] = useState(databaseStorage.get())
   const [recentBacktests, setRecentBacktests] = useState([])
   const [backtestsLoading, setBacktestsLoading] = useState(false)
 
@@ -106,6 +111,11 @@ export default function Header() {
   const handleSettingsClick = () => {
     handleUserMenuClose()
     setSettingsModalOpen(true)
+  }
+
+  const handleDatabaseSelectorClick = () => {
+    handleUserMenuClose()
+    setDatabaseSelectorOpen(true)
   }
 
   const handleLogout = () => {
@@ -790,6 +800,12 @@ export default function Header() {
               </ListItemIcon>
               <ListItemText>Settings</ListItemText>
             </MenuItem>
+            <MenuItem onClick={handleDatabaseSelectorClick}>
+              <ListItemIcon>
+                <StorageIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Select Database</ListItemText>
+            </MenuItem>
             <Divider sx={{ my: 1 }} />
             <MenuItem onClick={handleLogout}>
               <ListItemIcon>
@@ -890,6 +906,18 @@ export default function Header() {
 
       {/* Settings Modal */}
       <SettingsModal open={settingsModalOpen} onClose={() => setSettingsModalOpen(false)} />
+
+      {/* Database Selector Modal */}
+      <DatabaseSelectorModal
+        open={databaseSelectorOpen}
+        onClose={() => setDatabaseSelectorOpen(false)}
+        onSelectDatabase={(source) => {
+          setCurrentDatabase(source)
+          databaseStorage.set(source)
+          setDatabaseSelectorOpen(false)
+        }}
+        currentDatabase={currentDatabase}
+      />
     </AppBar>
   )
 }

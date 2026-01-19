@@ -1,26 +1,21 @@
-import { useState, useEffect, useRef } from 'react'
-import { Container, Typography, Box, Paper, Button, useTheme, Alert, CircularProgress } from '@mui/material'
+import { useState, useEffect } from 'react'
+import { Container, Typography, Box, Paper, Button, useTheme, Alert, CircularProgress, LinearProgress, Accordion, AccordionSummary, AccordionDetails } from '@mui/material'
+import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DataFetcher from '../components/DataFetcher'
 import StrategySelector from '../components/StrategySelector'
 import BacktestConfig from '../components/BacktestConfig'
 import OptimizationConfig from '../components/OptimizationConfig'
 import { backtestService } from '../services/backtestService'
 import OptimizationResults from '../components/OptimizationResults'
-
-const steps = [
-  { id: 'fetch-data', label: 'Fetch Data' },
-  { id: 'select-strategy', label: 'Select Strategy' },
-  { id: 'configure-backtest', label: 'Configure Backtest' },
-  { id: 'configure-optimization', label: 'Configure Optimization' },
-  { id: 'run-results', label: 'Run & View Results' },
-]
+import { useThemeMode } from '../contexts/ThemeContext'
 
 export default function Optimization() {
   const navigate = useNavigate()
   const theme = useTheme()
+  const { isDark } = useThemeMode()
   const [data, setData] = useState(null)
   const [selectedSymbol, setSelectedSymbol] = useState(null)
   const [strategy, setStrategy] = useState(null)
@@ -29,26 +24,59 @@ export default function Optimization() {
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [activeStepIndex, setActiveStepIndex] = useState(0)
+  const [expandedAccordion, setExpandedAccordion] = useState('fetch-data')
+  const [userHasManuallyExpanded, setUserHasManuallyExpanded] = useState(false)
+
+  // Reset to fetch-data if no data exists
+  useEffect(() => {
+    if (!data) {
+      setExpandedAccordion('fetch-data')
+      setUserHasManuallyExpanded(false)
+    }
+  }, [data])
+
+  // Auto-expand select-strategy when data becomes available (only if user hasn't manually expanded)
+  useEffect(() => {
+    if (data && !strategy && !userHasManuallyExpanded) {
+      setExpandedAccordion('select-strategy')
+    }
+  }, [data, strategy, userHasManuallyExpanded])
+
+  useEffect(() => {
+    if (data && strategy && !config && !userHasManuallyExpanded) {
+      setExpandedAccordion('configure-backtest')
+    }
+  }, [data, strategy, config, userHasManuallyExpanded])
+
+  useEffect(() => {
+    if (data && strategy && config && !optimizationConfig && !userHasManuallyExpanded) {
+      setExpandedAccordion('configure-optimization')
+    }
+  }, [data, strategy, config, optimizationConfig, userHasManuallyExpanded])
+
+  useEffect(() => {
+    if (data && strategy && config && optimizationConfig && !results && !userHasManuallyExpanded) {
+      setExpandedAccordion('run-results')
+    }
+  }, [data, strategy, config, optimizationConfig, results, userHasManuallyExpanded])
 
   const handleDataFetched = (fetchedData, symbol) => {
     setData(fetchedData)
     setSelectedSymbol(symbol)
-    setActiveStepIndex(1)
+    setResults(null)
+    // Reset config and strategy when new data is fetched
+    setConfig(null)
+    setStrategy(null)
+    setOptimizationConfig(null)
   }
 
   const handleStrategySelected = (selectedStrategy) => {
     setStrategy(selectedStrategy)
-    if (data) {
-      setActiveStepIndex(2)
-    }
+    setResults(null)
   }
 
   const handleConfigChanged = (backtestConfig) => {
     setConfig(backtestConfig)
-    if (strategy) {
-      setActiveStepIndex(3)
-    }
   }
 
   const handleOptimizationConfigChanged = (optConfig) => {
@@ -95,7 +123,6 @@ export default function Optimization() {
       })
 
       setResults(response)
-      setActiveStepIndex(4)
     } catch (err) {
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to run optimization'
       setError(errorMessage)
@@ -105,39 +132,29 @@ export default function Optimization() {
     }
   }
 
-  const getStepStatus = (index) => {
-    if (index === 0) return data ? 'completed' : activeStepIndex === 0 ? 'active' : 'pending'
-    if (index === 1) {
-      if (!data) return 'disabled'
-      return strategy ? 'completed' : activeStepIndex === 1 ? 'active' : 'pending'
+  // Calculate progress percentage based on completed steps
+  const getProgress = () => {
+    // Start at 0% if no data has been fetched
+    if (!data) {
+      return 0
     }
-    if (index === 2) {
-      if (!data || !strategy) return 'disabled'
-      return config ? 'completed' : activeStepIndex === 2 ? 'active' : 'pending'
-    }
-    if (index === 3) {
-      if (!data || !strategy || !config) return 'disabled'
-      return optimizationConfig ? 'completed' : activeStepIndex === 3 ? 'active' : 'pending'
-    }
-    if (index === 4) {
-      if (!data || !strategy || !config || !optimizationConfig) return 'disabled'
-      return activeStepIndex === 4 ? 'active' : results ? 'completed' : 'pending'
-    }
-    return 'pending'
-  }
-
-  const scrollToSection = (sectionId) => {
-    const element = document.getElementById(sectionId)
-    if (element) {
-      const headerOffset = 100
-      const elementPosition = element.getBoundingClientRect().top
-      const offsetPosition = elementPosition + window.pageYOffset - headerOffset
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth',
-      })
-    }
+    
+    // There are 5 steps: Fetch Data, Select Strategy, Configure Backtest, Configure Optimization, Run & Results
+    let completed = 0
+    
+    // Step 1: Fetch Market Data (always complete if we get here)
+    completed++
+    // Step 2: Select Strategy
+    if (strategy) completed++
+    // Step 3: Configure Backtest
+    if (config) completed++
+    // Step 4: Configure Optimization
+    if (optimizationConfig) completed++
+    // Step 5: Run & Results
+    if (results) completed++
+    
+    // Return percentage (0-100)
+    return (completed / 5) * 100
   }
 
   // Validate optimization config
@@ -170,14 +187,25 @@ export default function Optimization() {
 
   return (
     <Container maxWidth="xl">
-      <Box sx={{ mb: 5 }}>
-        <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 600, mb: 1.5 }}>
-          Parameter Optimization
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ fontSize: '1.0625rem' }}>
-          Find optimal strategy parameters through systematic testing
-        </Typography>
-      </Box>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <Box sx={{ mb: 4 }}>
+          <Typography
+            variant="h4"
+            component="h1"
+            gutterBottom
+            sx={{ fontWeight: 700, mb: 1 }}
+          >
+            Parameter Optimization
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ fontSize: '1.0625rem' }}>
+            Find optimal strategy parameters through systematic testing
+          </Typography>
+        </Box>
+      </motion.div>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
@@ -185,214 +213,195 @@ export default function Optimization() {
         </Alert>
       )}
 
-      <Box sx={{ display: 'flex', gap: 4 }}>
-        {/* Vertical Navigation */}
-        <Paper
-          sx={{
-            position: 'sticky',
-            top: 100,
-            alignSelf: 'flex-start',
-            p: 2,
-            minWidth: 200,
-            height: 'fit-content',
-            elevation: 2,
-          }}
-        >
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {steps.map((step, index) => {
-              const status = getStepStatus(index)
-              const isActive = activeStepIndex === index
-              const isCompleted = status === 'completed'
-              const isDisabled = status === 'disabled'
-
-              return (
-                <Button
-                  key={step.id}
-                  onClick={() => !isDisabled && scrollToSection(step.id)}
-                  disabled={isDisabled}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.5,
-                    justifyContent: 'flex-start',
-                    p: 1.5,
-                    borderRadius: 1,
-                    textTransform: 'none',
-                    color: isDisabled
-                      ? 'text.disabled'
-                      : isActive
-                      ? 'primary.main'
-                      : isCompleted
-                      ? 'text.secondary'
-                      : 'text.primary',
-                    backgroundColor: isActive ? 'action.selected' : 'transparent',
-                    '&:hover': {
-                      backgroundColor: isDisabled ? 'transparent' : 'action.hover',
-                    },
-                    transition: 'all 0.2s ease-in-out',
-                    borderLeft: isActive ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
-                    pl: isActive ? 1.25 : 1.5,
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: isDisabled
-                        ? 'action.disabledBackground'
-                        : isActive
-                        ? 'primary.main'
-                        : isCompleted
-                        ? 'success.main'
-                        : 'action.selected',
-                      color: isDisabled
-                        ? 'text.disabled'
-                        : isActive || isCompleted
-                        ? 'white'
-                        : 'text.secondary',
-                      fontWeight: isActive ? 600 : 400,
-                      fontSize: '0.875rem',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {isCompleted ? (
-                      <CheckCircleIcon sx={{ fontSize: 20 }} />
-                    ) : (
-                      index + 1
-                    )}
-                  </Box>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: isActive ? 600 : 400,
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    {step.label}
-                  </Typography>
-                </Button>
-              )
-            })}
-          </Box>
-        </Paper>
-
-        {/* Main Content */}
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Box
-            id="fetch-data"
-            sx={{
-              mb: 4,
-              scrollMarginTop: '120px',
-            }}
+      {/* Progress indicator at top */}
+      <Paper
+        sx={{
+          p: 2.5,
+          mb: 4,
+          background: isDark
+            ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.4) 100%)'
+            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.7) 100%)',
+          border: '1px solid',
+          borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+          borderRadius: 3,
+        }}
+        elevation={0}
+      >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
           >
-            <DataFetcher onDataFetched={handleDataFetched} />
-          </Box>
+            Progress
+          </Typography>
+          <Typography
+            variant="caption"
+            color="primary.main"
+            sx={{ fontWeight: 700, fontSize: '0.8125rem' }}
+          >
+            {Math.round(getProgress())}%
+          </Typography>
+        </Box>
+        <LinearProgress
+          variant="determinate"
+          value={getProgress()}
+          sx={{
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+            overflow: 'hidden',
+            '& .MuiLinearProgress-bar': {
+              borderRadius: 4,
+              background: 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)',
+              boxShadow: '0 0 8px rgba(37, 99, 235, 0.4)',
+            },
+          }}
+        />
+      </Paper>
 
-          {data && (
-            <>
-              <Box
-                id="select-strategy"
-                sx={{
-                  mb: 4,
-                  scrollMarginTop: '120px',
-                }}
-              >
-                <StrategySelector onStrategySelected={handleStrategySelected} />
+      {/* Main Content */}
+      <Box sx={{ position: 'relative' }}>
+        <Accordion
+          expanded={expandedAccordion === 'fetch-data'}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'fetch-data' : '')
+            setUserHasManuallyExpanded(true)
+          }}
+          sx={{ mb: 2 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Fetch Market Data
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <DataFetcher onDataFetched={handleDataFetched} />
+          </AccordionDetails>
+        </Accordion>
+
+        <Accordion
+          expanded={expandedAccordion === 'select-strategy'}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'select-strategy' : '')
+            setUserHasManuallyExpanded(true)
+          }}
+          disabled={!data}
+          sx={{ mb: 2 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Select Strategy
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <StrategySelector onStrategySelected={handleStrategySelected} />
+          </AccordionDetails>
+        </Accordion>
+
+        <Accordion
+          expanded={expandedAccordion === 'configure-backtest'}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'configure-backtest' : '')
+            setUserHasManuallyExpanded(true)
+          }}
+          disabled={!data || !strategy}
+          sx={{ mb: 2 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Configure Backtest
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <BacktestConfig onConfigChanged={handleConfigChanged} />
+          </AccordionDetails>
+        </Accordion>
+
+        <Accordion
+          expanded={expandedAccordion === 'configure-optimization'}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'configure-optimization' : '')
+            setUserHasManuallyExpanded(true)
+          }}
+          disabled={!data || !strategy || !config}
+          sx={{ mb: 2 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Configure Optimization
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <OptimizationConfig
+              strategy={strategy}
+              onConfigChanged={handleOptimizationConfigChanged}
+            />
+          </AccordionDetails>
+        </Accordion>
+
+        <Accordion
+          expanded={expandedAccordion === 'run-results'}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'run-results' : '')
+            setUserHasManuallyExpanded(true)
+          }}
+          disabled={!data || !strategy || !config || !optimizationConfig}
+          sx={{ mb: 2 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Run & Results
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Paper sx={{ p: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Run Optimization
+                </Typography>
+                <Button
+                  variant="contained"
+                  size="large"
+                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PlayArrowIcon />}
+                  onClick={handleRunOptimization}
+                  disabled={!canRunOptimization || loading}
+                >
+                  {loading ? 'Running...' : 'Run Optimization'}
+                </Button>
               </Box>
 
-              {strategy && (
-                <>
-                  <Box
-                    id="configure-backtest"
-                    sx={{
-                      mb: 4,
-                      scrollMarginTop: '120px',
-                    }}
-                  >
-                    <BacktestConfig onConfigChanged={handleConfigChanged} />
-                  </Box>
-
-                  {config && (
-                    <>
-                      <Box
-                        id="configure-optimization"
-                        sx={{
-                          mb: 4,
-                          scrollMarginTop: '120px',
-                        }}
-                      >
-                        <OptimizationConfig
-                          strategy={strategy}
-                          onConfigChanged={handleOptimizationConfigChanged}
-                        />
-                      </Box>
-
-                      {optimizationConfig && (
-                        <Box
-                          id="run-results"
-                          sx={{
-                            mb: 4,
-                            scrollMarginTop: '120px',
-                          }}
-                        >
-                          <Paper sx={{ p: 4 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                Run Optimization
-                              </Typography>
-                              <Button
-                                variant="contained"
-                                size="large"
-                                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PlayArrowIcon />}
-                                onClick={handleRunOptimization}
-                                disabled={!canRunOptimization || loading}
-                              >
-                                {loading ? 'Running...' : 'Run Optimization'}
-                              </Button>
-                            </Box>
-
-                            {loading && (
-                              <Box sx={{ textAlign: 'center', py: 4 }}>
-                                <CircularProgress size={60} />
-                                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                                  Running optimization... This may take a while.
-                                </Typography>
-                              </Box>
-                            )}
-
-                            {results && !loading && (
-                              <OptimizationResults
-                                results={results}
-                                strategy={strategy}
-                                config={config}
-                                data={data}
-                                symbol={selectedSymbol}
-                                onApplyParameters={(params) => {
-                                  // Navigate to backtest page with optimized parameters
-                                  navigate('/backtest', {
-                                    state: {
-                                      optimizedParams: params,
-                                      strategy: strategy,
-                                      symbol: selectedSymbol,
-                                    },
-                                  })
-                                }}
-                              />
-                            )}
-                          </Paper>
-                        </Box>
-                      )}
-                    </>
-                  )}
-                </>
+              {loading && (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <CircularProgress size={60} />
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                    Running optimization... This may take a while.
+                  </Typography>
+                </Box>
               )}
-            </>
-          )}
-        </Box>
+
+              {results && !loading && (
+                <OptimizationResults
+                  results={results}
+                  strategy={strategy}
+                  config={config}
+                  data={data}
+                  symbol={selectedSymbol}
+                  onApplyParameters={(params) => {
+                    // Navigate to backtest page with optimized parameters
+                    navigate('/backtest', {
+                      state: {
+                        optimizedParams: params,
+                        strategy: strategy,
+                        symbol: selectedSymbol,
+                      },
+                    })
+                  }}
+                />
+              )}
+            </Paper>
+          </AccordionDetails>
+        </Accordion>
       </Box>
     </Container>
   )
