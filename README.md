@@ -77,14 +77,37 @@ python scripts/fetch_all_tickers.py  # Fetches data for symbols in tickers.json
 
 ## Quick Start
 
-### Using the Streamlit Dashboard
+### Using the React Web Application (Recommended)
 
-For an interactive web interface, see the [Streamlit Dashboard Guide](docs/STREAMLIT_GUIDE.md).
+The modern web interface provides the best user experience.
 
-```bash
-# Run the dashboard
-streamlit run streamlit_app/app.py
-```
+**Prerequisites:**
+- Node.js 16+ and npm
+- Python 3.8+ (for the API backend)
+- PostgreSQL database
+
+**Setup:**
+
+1. **Start the API backend** (from project root):
+   ```bash
+   # Install API dependencies (if not already installed)
+   cd api
+   pip install -r requirements.txt
+   
+   # Start the API server
+   uvicorn api.main:app --reload
+   ```
+   The API will be available at `http://localhost:8000`
+
+2. **Start the React frontend** (in a new terminal):
+   ```bash
+   cd React_App
+   npm install
+   npm run dev
+   ```
+   The app will be available at `http://localhost:3000`
+
+See the [React App README](React_App/README.md) for detailed setup instructions.
 
 ### Using the Python Library
 
@@ -130,7 +153,8 @@ create_tear_sheet(results, save_path='backtest_results.png')
 
 - [Quick Start Guide](docs/QUICK_START.md) - Getting started with the Python library
 - [Data Setup Guide](docs/DATA_SETUP.md) - How to set up and populate your database
-- [Streamlit Dashboard Guide](docs/STREAMLIT_GUIDE.md) - Using the Streamlit interface
+- [React App README](React_App/README.md) - Modern web interface setup and usage
+- [Streamlit Dashboard README](streamlit_app/README.md) - Alternative Streamlit interface (legacy)
 - `examples/` directory - Complete examples and usage patterns
 
 ## Data and Database
@@ -192,13 +216,17 @@ store = DataStore(database_url="postgresql://user:pass@host:port/db")
 
 The library is organized into modular components:
 
-- **data/**: Data fetching, storage, and preprocessing (PostgreSQL-backed)
-- **indicators/**: Technical analysis indicators
-- **backtesting/**: Backtesting engine and event system
-- **portfolio/**: Portfolio management and position sizing
-- **risk/**: Risk metrics and analysis
-- **strategies/**: Strategy framework and examples
-- **visualization/**: Charting and performance visualization
+- **src/quantlib/**: Core Python library
+  - **data/**: Data fetching, storage, and preprocessing (PostgreSQL-backed)
+  - **indicators/**: Technical analysis indicators
+  - **backtesting/**: Backtesting engine and event system
+  - **portfolio/**: Portfolio management and position sizing
+  - **risk/**: Risk metrics and analysis
+  - **strategies/**: Strategy framework and examples
+  - **visualization/**: Charting and performance visualization
+- **api/**: FastAPI REST API backend
+- **React_App/**: Modern React web frontend (recommended)
+- **streamlit_app/**: Alternative Streamlit dashboard interface
 
 ## Testing
 
