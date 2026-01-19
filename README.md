@@ -2,6 +2,26 @@
 
 A comprehensive Python library for building and backtesting trading algorithms.
 
+## Quick Setup with Setup Assistant
+
+This repository includes a **Setup Assistant agent** that provides complete setup instructions in one comprehensive guide. If you're using Cursor IDE, you can quickly get all setup steps by mentioning the agent:
+
+**To use the Setup Assistant:**
+1. In Cursor chat, simply ask: "Use the setup-assistant to help me set up the codebase"
+2. Or mention: "I need setup instructions - use setup-assistant"
+3. The agent will provide step-by-step instructions covering:
+   - PostgreSQL installation and database setup
+   - Python virtual environment and dependencies
+   - Database initialization for all data sources
+   - React frontend setup
+   - API backend configuration
+   - Optional configurations (API keys, data fetching)
+   - Troubleshooting guidance
+
+The setup assistant agent is located at `.cursor/agents/setup-assistant.md` and can be shared with your team through version control.
+
+**Manual setup:** If you prefer to follow setup instructions manually, continue reading the sections below.
+
 ## Features
 
 - **Data Management**: Fetch and store market data from multiple sources (Yahoo Finance, Alpha Vantage, Polygon.io)
