@@ -25,7 +25,7 @@ def main():
     today = datetime.now().date()
     
     # Account for system clock being wrong (e.g., set to future date)
-    # Use a reasonable maximum date (e.g., end of 2024) if system date is in the future
+    # Use a reasonable maximum date if system date is in the future
     REASONABLE_MAX_DATE = datetime(2026, 1, 1).date()
     if today > REASONABLE_MAX_DATE:
         today = REASONABLE_MAX_DATE
