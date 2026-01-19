@@ -86,6 +86,48 @@ export const backtestService = {
   },
 }
 
+export const workflowService = {
+  async createWorkflow({ data, strategy, config, symbol, parameterRanges, objective = 'sharpe_ratio', maxIterations = 100, nWorkers }) {
+    const response = await api.post('/api/workflows/create', {
+      data,
+      strategy,
+      config,
+      symbol,
+      parameter_ranges: parameterRanges,
+      objective,
+      max_iterations: maxIterations,
+      n_workers: nWorkers,
+    })
+    return response.data
+  },
+
+  async getWorkflowStatus(workflowId) {
+    const response = await api.get(`/api/workflows/${workflowId}`)
+    return response.data
+  },
+
+  async stopWorkflow(workflowId) {
+    const response = await api.post(`/api/workflows/${workflowId}/stop`)
+    return response.data
+  },
+
+  async listWorkflows(filterParams = {}) {
+    const {
+      limit = 100,
+      offset = 0,
+      status,
+    } = filterParams
+
+    const params = new URLSearchParams()
+    params.append('limit', limit.toString())
+    params.append('offset', offset.toString())
+    if (status) params.append('status', status)
+
+    const response = await api.get(`/api/workflows?${params.toString()}`)
+    return response.data
+  },
+}
+
 export const strategyService = {
   async listStrategies() {
     const response = await api.get('/api/strategies/list')

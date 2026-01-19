@@ -10,24 +10,13 @@ import {
   Typography,
   useTheme,
 } from '@mui/material'
-import HomeIcon from '@mui/icons-material/Home'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import ExploreIcon from '@mui/icons-material/Explore'
-import BuildIcon from '@mui/icons-material/Build'
-import TuneIcon from '@mui/icons-material/Tune'
-
-const menuItems = [
-  { text: 'Dashboard', icon: <HomeIcon />, path: '/' },
-  { text: 'Backtest', icon: <TrendingUpIcon />, path: '/backtest' },
-  { text: 'Optimization', icon: <TuneIcon />, path: '/optimization' },
-  { text: 'Data Explorer', icon: <ExploreIcon />, path: '/data-explorer' },
-  { text: 'Strategy Builder', icon: <BuildIcon />, path: '/strategy-builder' },
-]
+import { navigationItems, getNavigationItemsByGroup } from '../config/navigation'
 
 export default function Sidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const theme = useTheme()
+  const groups = getNavigationItemsByGroup()
 
   return (
     <Box
@@ -47,53 +36,87 @@ export default function Sidebar() {
         </Typography>
       </Box>
       <Divider />
-      <List sx={{ flexGrow: 1, pt: 1 }}>
-        {menuItems.map((item) => {
-          const isActive = location.pathname === item.path
-          return (
-            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
-              <ListItemButton
-                selected={isActive}
-                onClick={() => navigate(item.path)}
-                sx={{
-                  mx: 1,
-                  borderRadius: 2,
-                  py: 1.25,
-                  '&.Mui-selected': {
-                    backgroundColor: 'primary.main',
-                    color: 'primary.contrastText',
-                    '&:hover': {
-                      backgroundColor: 'primary.dark',
-                    },
-                    '& .MuiListItemIcon-root': {
-                      color: 'primary.contrastText',
-                    },
-                  },
-                  '&:hover': {
-                    backgroundColor: isActive ? 'primary.dark' : 'action.hover',
-                  },
-                }}
-              >
-                <ListItemIcon
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', pt: 1 }}>
+        {Object.entries(groups).map(([groupName, items], groupIndex) => (
+          <Box key={groupName}>
+            {groupIndex > 0 && (
+              <Box sx={{ px: 2, py: 1 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
                   sx={{
-                    color: isActive ? 'primary.contrastText' : 'text.secondary',
-                    minWidth: 40,
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
                   }}
                 >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  primaryTypographyProps={{
-                    fontWeight: isActive ? 600 : 400,
-                    fontSize: '0.9375rem',
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
-          )
-        })}
-      </List>
+                  {groupName === 'main' ? 'Main' : groupName === 'backtest' ? 'Backtesting' : 'Trading'}
+                </Typography>
+              </Box>
+            )}
+            <List sx={{ pt: groupIndex > 0 ? 0 : 0 }}>
+              {items.map((item) => {
+                const isActive = location.pathname === item.path
+                const IconComponent = item.icon
+                return (
+                  <ListItem key={item.path} disablePadding sx={{ mb: 0.5 }}>
+                    <ListItemButton
+                      selected={isActive}
+                      onClick={() => navigate(item.path)}
+                      sx={{
+                        mx: 1,
+                        borderRadius: 2,
+                        py: 1.25,
+                        '&.Mui-selected': {
+                          backgroundColor: 'primary.main',
+                          color: 'primary.contrastText',
+                          '&:hover': {
+                            backgroundColor: 'primary.dark',
+                          },
+                          '& .MuiListItemIcon-root': {
+                            color: 'primary.contrastText',
+                          },
+                        },
+                        '&:hover': {
+                          backgroundColor: isActive ? 'primary.dark' : 'action.hover',
+                        },
+                      }}
+                    >
+                      <ListItemIcon
+                        sx={{
+                          color: isActive ? 'primary.contrastText' : 'text.secondary',
+                          minWidth: 40,
+                        }}
+                      >
+                        <IconComponent />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={item.text}
+                        secondary={item.description}
+                        primaryTypographyProps={{
+                          fontWeight: isActive ? 600 : 400,
+                          fontSize: '0.9375rem',
+                        }}
+                        secondaryTypographyProps={{
+                          sx: {
+                            fontSize: '0.7rem',
+                            mt: 0.25,
+                            lineHeight: 1.2,
+                          },
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                )
+              })}
+            </List>
+            {groupIndex < Object.keys(groups).length - 1 && (
+              <Divider sx={{ mx: 2, my: 1 }} />
+            )}
+          </Box>
+        ))}
+      </Box>
       <Divider />
       <Box sx={{ p: 2, pt: 1.5 }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>

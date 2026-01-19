@@ -38,7 +38,7 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import ShowChartIcon from '@mui/icons-material/ShowChart'
 import CircularProgress from '@mui/material/CircularProgress'
-import { navigationItems } from '../config/navigation'
+import { navigationItems, getNavigationItemsByGroup } from '../config/navigation'
 import QuickNav from './QuickNav'
 import ProfileModal from './ProfileModal'
 import SettingsModal from './SettingsModal'
@@ -282,81 +282,90 @@ export default function Header() {
             flexGrow: 1,
           }}
         >
-          {/* Group navigation items */}
-          {menuItems.map((item, index) => {
-            const isActive = location.pathname === item.path
-            const isLastInGroup =
-              index === menuItems.length - 1 || menuItems[index + 1].group !== item.group
+          {/* Group navigation items by group */}
+          {(() => {
+            const groups = getNavigationItemsByGroup()
+            const groupOrder = ['main', 'backtest', 'trading']
+            return groupOrder.map((groupName, groupIndex) => {
+              const items = groups[groupName] || []
+              if (items.length === 0) return null
 
-            return (
-              <Box key={item.path} sx={{ display: 'flex', alignItems: 'center' }}>
-                <Tooltip
-                  title={`${item.description} (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+${item.shortcut})`}
-                  arrow
-                  enterDelay={500}
-                >
-                  <Button
-                    component={motion.button}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => navigate(item.path)}
-                    startIcon={item.icon}
-                    sx={{
-                      color: isActive ? 'primary.main' : 'text.secondary',
-                      fontWeight: isActive ? 600 : 500,
-                      px: 2,
-                      py: 1,
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      fontSize: '0.9375rem',
-                      backgroundColor: isActive
-                        ? isDark
-                          ? 'rgba(59, 130, 246, 0.15)'
-                          : 'rgba(37, 99, 235, 0.08)'
-                        : 'transparent',
-                      '&:hover': {
-                        backgroundColor: isActive
-                          ? isDark
-                            ? 'rgba(59, 130, 246, 0.2)'
-                            : 'rgba(37, 99, 235, 0.12)'
-                          : isDark
-                            ? 'rgba(255, 255, 255, 0.06)'
-                            : 'rgba(0, 0, 0, 0.04)',
-                      },
-                      transition: 'all 0.2s ease',
-                      position: 'relative',
-                      '&::after': isActive
-                        ? {
-                            content: '""',
-                            position: 'absolute',
-                            bottom: 4,
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            width: 20,
-                            height: 3,
+              return (
+                <Box key={groupName} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {items.map((item) => {
+                    const isActive = location.pathname === item.path
+                    return (
+                      <Tooltip
+                        key={item.path}
+                        title={`${item.description} (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+${item.shortcut})`}
+                        arrow
+                        enterDelay={500}
+                      >
+                        <Button
+                          component={motion.button}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => navigate(item.path)}
+                          startIcon={<item.icon />}
+                          sx={{
+                            color: isActive ? 'primary.main' : 'text.secondary',
+                            fontWeight: isActive ? 600 : 500,
+                            px: 2,
+                            py: 1,
                             borderRadius: 2,
-                            backgroundColor: 'primary.main',
-                          }
-                        : {},
-                    }}
-                  >
-                    {item.text}
-                  </Button>
-                </Tooltip>
-                {/* Add visual separator between groups */}
-                {!isLastInGroup && item.group === 'backtest' && (
-                  <Box
-                    sx={{
-                      width: '1px',
-                      height: '24px',
-                      backgroundColor: 'divider',
-                      mx: 1,
-                    }}
-                  />
-                )}
-              </Box>
-            )
-          })}
+                            textTransform: 'none',
+                            fontSize: '0.9375rem',
+                            backgroundColor: isActive
+                              ? isDark
+                                ? 'rgba(59, 130, 246, 0.15)'
+                                : 'rgba(37, 99, 235, 0.08)'
+                              : 'transparent',
+                            '&:hover': {
+                              backgroundColor: isActive
+                                ? isDark
+                                  ? 'rgba(59, 130, 246, 0.2)'
+                                  : 'rgba(37, 99, 235, 0.12)'
+                                : isDark
+                                  ? 'rgba(255, 255, 255, 0.06)'
+                                  : 'rgba(0, 0, 0, 0.04)',
+                            },
+                            transition: 'all 0.2s ease',
+                            position: 'relative',
+                            '&::after': isActive
+                              ? {
+                                  content: '""',
+                                  position: 'absolute',
+                                  bottom: 4,
+                                  left: '50%',
+                                  transform: 'translateX(-50%)',
+                                  width: 20,
+                                  height: 3,
+                                  borderRadius: 2,
+                                  backgroundColor: 'primary.main',
+                                }
+                              : {},
+                          }}
+                        >
+                          {item.text}
+                        </Button>
+                      </Tooltip>
+                    )
+                  })}
+                  {/* Add visual separator between groups (except after last group) */}
+                  {groupIndex < groupOrder.length - 1 && (
+                    <Box
+                      sx={{
+                        width: '1px',
+                        height: '24px',
+                        backgroundColor: 'divider',
+                        mx: 0.5,
+                      }}
+                    />
+                  )}
+                </Box>
+              )
+            })
+          })()}
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -847,53 +856,77 @@ export default function Header() {
           </Box>
           <Divider />
           <List sx={{ px: 1 }}>
-            {menuItems.map((item, index) => {
-              const isActive = location.pathname === item.path
-              const isLastInGroup =
-                index === menuItems.length - 1 || menuItems[index + 1].group !== item.group
+            {(() => {
+              const groups = getNavigationItemsByGroup()
+              const groupOrder = ['main', 'backtest', 'trading']
+              return groupOrder.map((groupName, groupIndex) => {
+                const items = groups[groupName] || []
+                if (items.length === 0) return null
 
-              return (
-                <Box key={item.path}>
-                  <ListItem disablePadding sx={{ mb: 0.5 }}>
-                    <ListItemButton
-                      selected={isActive}
-                      onClick={() => handleMobileNavClick(item.path)}
-                      sx={{
-                        py: 1.5,
-                        px: 2,
-                        borderRadius: 2,
-                        '&.Mui-selected': {
-                          backgroundColor: 'primary.main',
-                          color: 'primary.contrastText',
-                          '&:hover': {
-                            backgroundColor: 'primary.dark',
-                          },
-                          '& .MuiListItemIcon-root': {
-                            color: 'primary.contrastText',
-                          },
-                        },
-                      }}
-                    >
-                      <ListItemIcon
-                        sx={{
-                          color: isActive ? 'primary.contrastText' : 'text.secondary',
-                          minWidth: 40,
-                        }}
-                      >
-                        {item.icon}
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={item.text}
-                        primaryTypographyProps={{
-                          fontWeight: isActive ? 600 : 400,
-                        }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-                  {!isLastInGroup && item.group === 'backtest' && <Divider sx={{ mx: 2, my: 1 }} />}
-                </Box>
-              )
-            })}
+                return (
+                  <Box key={groupName}>
+                    {groupIndex > 0 && (
+                      <Box sx={{ px: 2, py: 1 }}>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
+                          {groupName === 'main' ? 'Main' : groupName === 'backtest' ? 'Backtesting' : 'Trading'}
+                        </Typography>
+                      </Box>
+                    )}
+                    {items.map((item) => {
+                      const isActive = location.pathname === item.path
+                      return (
+                        <ListItem key={item.path} disablePadding sx={{ mb: 0.5 }}>
+                          <ListItemButton
+                            selected={isActive}
+                            onClick={() => handleMobileNavClick(item.path)}
+                            sx={{
+                              py: 1.5,
+                              px: 2,
+                              borderRadius: 2,
+                              '&.Mui-selected': {
+                                backgroundColor: 'primary.main',
+                                color: 'primary.contrastText',
+                                '&:hover': {
+                                  backgroundColor: 'primary.dark',
+                                },
+                                '& .MuiListItemIcon-root': {
+                                  color: 'primary.contrastText',
+                                },
+                              },
+                            }}
+                          >
+                            <ListItemIcon
+                              sx={{
+                                color: isActive ? 'primary.contrastText' : 'text.secondary',
+                                minWidth: 40,
+                              }}
+                            >
+                              <item.icon />
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={item.text}
+                              primaryTypographyProps={{
+                                fontWeight: isActive ? 600 : 400,
+                              }}
+                            />
+                          </ListItemButton>
+                        </ListItem>
+                      )
+                    })}
+                    {groupIndex < groupOrder.length - 1 && <Divider sx={{ mx: 2, my: 1 }} />}
+                  </Box>
+                )
+              })
+            })()}
           </List>
         </Box>
       </Drawer>

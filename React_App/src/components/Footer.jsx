@@ -1,10 +1,13 @@
-import { Box, Container, Typography, Link, Grid, IconButton, Tooltip } from '@mui/material'
+import { useState } from 'react'
+import { Box, Container, Typography, Link, Grid, IconButton, Tooltip, Button } from '@mui/material'
 import { motion } from 'framer-motion'
 import { useThemeMode } from '../contexts/ThemeContext'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import GitHubIcon from '@mui/icons-material/GitHub'
 import DescriptionIcon from '@mui/icons-material/Description'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import BugReportIcon from '@mui/icons-material/BugReport'
+import IssueReportDialog from './IssueReportDialog'
 
 // Get API base URL for API docs link
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -62,6 +65,13 @@ function FooterLink({ href, children, external }) {
 export default function Footer() {
   const { isDark } = useThemeMode()
   const currentYear = new Date().getFullYear()
+  const [issueDialogOpen, setIssueDialogOpen] = useState(false)
+  const [throwError, setThrowError] = useState(false)
+
+  // Component that throws an error when rendered (for testing)
+  if (throwError) {
+    throw new Error('Test Error: This is a test error for issue reporting functionality! Click "Report an Issue" to report this error.')
+  }
 
   return (
     <Box
@@ -200,6 +210,37 @@ export default function Footer() {
                     {link.label}
                   </FooterLink>
                 ))}
+                <Button
+                  onClick={() => setIssueDialogOpen(true)}
+                  startIcon={<BugReportIcon />}
+                  sx={{
+                    justifyContent: 'flex-start',
+                    color: 'text.secondary',
+                    fontSize: '0.875rem',
+                    textTransform: 'none',
+                    '&:hover': {
+                      color: 'primary.main',
+                      backgroundColor: 'transparent',
+                    },
+                  }}
+                >
+                  Report an Issue
+                </Button>
+                <Button
+                  onClick={() => setThrowError(true)}
+                  sx={{
+                    justifyContent: 'flex-start',
+                    color: 'error.main',
+                    fontSize: '0.875rem',
+                    textTransform: 'none',
+                    '&:hover': {
+                      color: 'error.dark',
+                      backgroundColor: 'transparent',
+                    },
+                  }}
+                >
+                  🧪 Test Error (for testing)
+                </Button>
               </Box>
             </motion.div>
           </Grid>
@@ -297,6 +338,9 @@ export default function Footer() {
           </Typography>
         </Box>
       </Container>
+
+      {/* Issue Report Dialog */}
+      <IssueReportDialog open={issueDialogOpen} onClose={() => setIssueDialogOpen(false)} />
     </Box>
   )
 }

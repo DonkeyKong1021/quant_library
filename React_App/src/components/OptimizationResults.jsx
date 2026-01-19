@@ -10,6 +10,10 @@ import {
   Divider,
 } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
+import HistoryIcon from '@mui/icons-material/History'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
+import { useNavigate } from 'react-router-dom'
 import OptimizationResultsTable from './OptimizationResultsTable'
 import OptimizationHeatmap from './OptimizationHeatmap'
 import OptimizationSensitivity from './OptimizationSensitivity'
@@ -23,6 +27,7 @@ export default function OptimizationResults({
   symbol,
   onApplyParameters,
 }) {
+  const navigate = useNavigate()
   const [selectedResult, setSelectedResult] = useState(null)
 
   if (!results || !results.best_result) {
@@ -165,7 +170,7 @@ export default function OptimizationResults({
       )}
 
       {/* Results Table */}
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
           All Results ({allResults.length})
         </Typography>
@@ -176,6 +181,48 @@ export default function OptimizationResults({
           onSelectResult={setSelectedResult}
           onApplyParameters={handleApplySelected}
         />
+      </Paper>
+
+      {/* Next Steps Navigation */}
+      <Paper
+        sx={{
+          p: 2.5,
+          borderRadius: 2,
+          backgroundColor: 'action.hover',
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+          Next Steps
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            startIcon={<AccountBalanceWalletIcon />}
+            endIcon={<ArrowForwardIcon />}
+            onClick={() => navigate('/paper-trading', {
+              state: {
+                strategy: strategy,
+                symbol: symbol,
+              }
+            })}
+            size="medium"
+            sx={{ fontSize: '0.875rem', fontWeight: 500 }}
+          >
+            Start Paper Trading
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<HistoryIcon />}
+            endIcon={<ArrowForwardIcon />}
+            onClick={() => navigate('/backtest-history')}
+            size="medium"
+            sx={{ fontSize: '0.875rem', fontWeight: 500 }}
+          >
+            View Backtest History
+          </Button>
+        </Box>
       </Paper>
     </Box>
   )

@@ -12,6 +12,11 @@ import {
 } from '@mui/material'
 import DownloadIcon from '@mui/icons-material/Download'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import TuneIcon from '@mui/icons-material/Tune'
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
+import HistoryIcon from '@mui/icons-material/History'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
+import { useNavigate } from 'react-router-dom'
 import { backtestService } from '../services/backtestService'
 import MetricsTable from './MetricsTable'
 import TradeHistory from './TradeHistory'
@@ -37,6 +42,7 @@ export default function ResultsDisplay({
   loading: externalLoading,
   results: externalResults,
 }) {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState(externalResults || null)
   const [error, setError] = useState(null)
@@ -263,6 +269,66 @@ export default function ResultsDisplay({
                 <TradeHistory trades={displayResults.trades} />
               </Box>
             )}
+          </Box>
+
+          {/* Next Steps Navigation */}
+          <Box
+            sx={{
+              mt: 4,
+              p: 2.5,
+              borderRadius: 2,
+              backgroundColor: 'action.hover',
+              border: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+              Next Steps
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                startIcon={<TuneIcon />}
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => navigate('/optimization', {
+                  state: {
+                    strategy: strategy,
+                    symbol: symbol,
+                    data: data,
+                    config: config,
+                  }
+                })}
+                size="medium"
+                sx={{ fontSize: '0.875rem', fontWeight: 500 }}
+              >
+                Optimize Parameters
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<AccountBalanceWalletIcon />}
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => navigate('/paper-trading', {
+                  state: {
+                    strategy: strategy,
+                    symbol: symbol,
+                  }
+                })}
+                size="medium"
+                sx={{ fontSize: '0.875rem', fontWeight: 500 }}
+              >
+                Start Paper Trading
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<HistoryIcon />}
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => navigate('/backtest-history')}
+                size="medium"
+                sx={{ fontSize: '0.875rem', fontWeight: 500 }}
+              >
+                View History
+              </Button>
+            </Box>
           </Box>
         </>
       )}

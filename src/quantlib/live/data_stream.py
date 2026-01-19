@@ -87,6 +87,7 @@ class SimulatedDataStream(DataStream):
                     if idx < len(data):
                         bar = data.iloc[idx]
                         bar_dict = {
+                            'symbol': symbol,
                             'timestamp': data.index[idx],
                             'open': float(bar['Open']),
                             'high': float(bar['High']),

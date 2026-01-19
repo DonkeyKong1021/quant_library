@@ -1,13 +1,17 @@
-import { useLocation, Link as RouterLink } from 'react-router-dom'
-import { Breadcrumbs as MuiBreadcrumbs, Link, Typography, Box, Chip } from '@mui/material'
+import { useLocation, Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Breadcrumbs as MuiBreadcrumbs, Link, Typography, Box, Chip, Button } from '@mui/material'
 import { motion } from 'framer-motion'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import HomeIcon from '@mui/icons-material/Home'
+import TuneIcon from '@mui/icons-material/Tune'
+import HistoryIcon from '@mui/icons-material/History'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import { routeLabels } from '../config/navigation'
 import { useThemeMode } from '../contexts/ThemeContext'
 
 export default function Breadcrumbs() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { isDark } = useThemeMode()
   const pathnames = location.pathname.split('/').filter((x) => x)
 
@@ -16,13 +20,53 @@ export default function Breadcrumbs() {
     return null
   }
 
+  // Define contextual quick actions for specific routes
+  const getQuickActions = () => {
+    const path = location.pathname
+    if (path === '/backtest') {
+      return [
+        {
+          label: 'Optimize',
+          icon: <TuneIcon sx={{ fontSize: 14 }} />,
+          onClick: () => navigate('/optimization'),
+        },
+        {
+          label: 'History',
+          icon: <HistoryIcon sx={{ fontSize: 14 }} />,
+          onClick: () => navigate('/backtest-history'),
+        },
+      ]
+    }
+    if (path === '/optimization') {
+      return [
+        {
+          label: 'Backtest',
+          icon: <TrendingUpIcon sx={{ fontSize: 14 }} />,
+          onClick: () => navigate('/backtest'),
+        },
+      ]
+    }
+    if (path === '/backtest-history') {
+      return [
+        {
+          label: 'New Backtest',
+          icon: <TrendingUpIcon sx={{ fontSize: 14 }} />,
+          onClick: () => navigate('/backtest'),
+        },
+      ]
+    }
+    return []
+  }
+
+  const quickActions = getQuickActions()
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -5 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
     >
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
         <MuiBreadcrumbs
           separator={
             <NavigateNextIcon
@@ -125,6 +169,40 @@ export default function Breadcrumbs() {
             )
           })}
         </MuiBreadcrumbs>
+
+        {/* Quick Actions */}
+        {quickActions.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {quickActions.map((action, index) => (
+              <Button
+                key={index}
+                size="small"
+                variant="outlined"
+                startIcon={action.icon}
+                onClick={action.onClick}
+                sx={{
+                  fontSize: '0.75rem',
+                  fontWeight: 500,
+                  height: 28,
+                  px: 1.5,
+                  py: 0.5,
+                  textTransform: 'none',
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    color: 'primary.main',
+                    backgroundColor: isDark
+                      ? 'rgba(59, 130, 246, 0.1)'
+                      : 'rgba(37, 99, 235, 0.06)',
+                  },
+                }}
+              >
+                {action.label}
+              </Button>
+            ))}
+          </Box>
+        )}
       </Box>
     </motion.div>
   )

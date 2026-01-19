@@ -20,7 +20,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-from api.routers import database, data, backtest, strategies, indicators, settings, database_info, paper_trading
+from api.routers import database, data, backtest, strategies, indicators, settings, database_info, paper_trading, workflows, issues
 try:
     from api.routers import fundamental
     FUNDAMENTAL_AVAILABLE = True
@@ -66,6 +66,8 @@ app.include_router(indicators.router, prefix="/api/indicators", tags=["indicator
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 app.include_router(database_info.router, prefix="/api/database-info", tags=["database-info"])
 app.include_router(paper_trading.router, prefix="/api/paper-trading", tags=["paper-trading"])
+app.include_router(workflows.router, prefix="/api/workflows", tags=["workflows"])
+app.include_router(issues.router, prefix="/api/issues", tags=["issues"])
 if FUNDAMENTAL_AVAILABLE:
     app.include_router(fundamental.router, prefix="/api/fundamental", tags=["fundamental"])
 if VERSIONING_AVAILABLE:

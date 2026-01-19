@@ -37,6 +37,7 @@ import BarChartIcon from '@mui/icons-material/BarChart'
 import VpnKeyIcon from '@mui/icons-material/VpnKey'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
+import GitHubIcon from '@mui/icons-material/GitHub'
 
 export default function SettingsModal({ open, onClose }) {
   const { isDark, toggleTheme } = useThemeMode()
@@ -62,18 +63,21 @@ export default function SettingsModal({ open, onClose }) {
     polygon: '',
     openai: '',
     anthropic: '',
+    github: '',
   })
   const [apiKeysSet, setApiKeysSet] = useState({
     alpha_vantage: false,
     polygon: false,
     openai: false,
     anthropic: false,
+    github: false,
   })
   const [showApiKeys, setShowApiKeys] = useState({
     alpha_vantage: false,
     polygon: false,
     openai: false,
     anthropic: false,
+    github: false,
   })
   const [loadingKeys, setLoadingKeys] = useState(false)
   const [savingKeys, setSavingKeys] = useState(false)
@@ -98,6 +102,7 @@ export default function SettingsModal({ open, onClose }) {
         polygon: response.polygon_set,
         openai: response.openai_set,
         anthropic: response.anthropic_set,
+        github: response.github_set,
       })
       // Initialize keys as empty (we can't retrieve actual values for security)
       setApiKeys({
@@ -105,6 +110,7 @@ export default function SettingsModal({ open, onClose }) {
         polygon: '',
         openai: '',
         anthropic: '',
+        github: '',
       })
     } catch (error) {
       console.error('Error loading API keys:', error)
@@ -136,6 +142,7 @@ export default function SettingsModal({ open, onClose }) {
       if (apiKeys.polygon) keysToSave.polygon = apiKeys.polygon
       if (apiKeys.openai) keysToSave.openai = apiKeys.openai
       if (apiKeys.anthropic) keysToSave.anthropic = apiKeys.anthropic
+      if (apiKeys.github) keysToSave.github = apiKeys.github
       
       await settingsService.saveAPIKeys(keysToSave)
       await loadAPIKeys() // Reload to update status
@@ -512,6 +519,36 @@ export default function SettingsModal({ open, onClose }) {
                       ),
                     }}
                     helperText="Alternative to OpenAI for AI-powered features"
+                  />
+
+                  {/* GitHub Token */}
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="GitHub Personal Access Token"
+                    type={showApiKeys.github ? 'text' : 'password'}
+                    value={apiKeys.github}
+                    onChange={(e) => handleApiKeyChange('github', e.target.value)}
+                    placeholder={getApiKeyPlaceholder('github')}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <GitHubIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => toggleApiKeyVisibility('github')}
+                            edge="end"
+                          >
+                            {showApiKeys.github ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    helperText="Required for issue logging to GitHub"
                   />
 
                   <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mt: 1 }}>

@@ -36,6 +36,25 @@ class APIKeyStorage:
             with self.engine.connect() as conn:
                 # Try to query the table to see if it exists
                 conn.execute(text("SELECT 1 FROM api_keys LIMIT 1"))
+                # Check if github_token column exists using information_schema
+                check_query = text("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.columns 
+                        WHERE table_name = 'api_keys' 
+                        AND column_name = 'github_token'
+                    )
+                """)
+                result = conn.execute(check_query)
+                column_exists = result.scalar()
+                
+                if not column_exists:
+                    # Column doesn't exist, add it
+                    try:
+                        conn.execute(text("ALTER TABLE api_keys ADD COLUMN github_token TEXT"))
+                        conn.commit()
+                        logger.info("Added github_token column to api_keys table")
+                    except Exception as e:
+                        logger.warning(f"Could not add github_token column: {e}")
                 self._table_checked = True
         except Exception:
             # Table doesn't exist, create it
@@ -48,6 +67,7 @@ class APIKeyStorage:
                             polygon_key TEXT,
                             openai_key TEXT,
                             anthropic_key TEXT,
+                            github_token TEXT,
                             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
                     """))
@@ -64,13 +84,13 @@ class APIKeyStorage:
         Get all API keys (decrypted).
         
         Returns:
-            Dictionary with keys: alpha_vantage, polygon, openai, anthropic
+            Dictionary with keys: alpha_vantage, polygon, openai, anthropic, github
         """
         self._ensure_table_exists()  # Lazy table creation
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(
-                    text("SELECT alpha_vantage_key, polygon_key, openai_key, anthropic_key FROM api_keys WHERE id = 'default'")
+                    text("SELECT alpha_vantage_key, polygon_key, openai_key, anthropic_key, github_token FROM api_keys WHERE id = 'default'")
                 ).fetchone()
                 
                 if result:
@@ -79,6 +99,7 @@ class APIKeyStorage:
                         'polygon': decrypt_api_key(result[1] or ''),
                         'openai': decrypt_api_key(result[2] or ''),
                         'anthropic': decrypt_api_key(result[3] or ''),
+                        'github': decrypt_api_key(result[4] or '') if len(result) > 4 else '',
                     }
         except Exception as e:
             logger.warning(f"Error reading API keys from database: {e}")
@@ -88,6 +109,7 @@ class APIKeyStorage:
             'polygon': '',
             'openai': '',
             'anthropic': '',
+            'github': '',
         }
     
     def get_key(self, key_type: str) -> str:
@@ -95,7 +117,7 @@ class APIKeyStorage:
         Get a specific API key (decrypted).
         
         Args:
-            key_type: One of 'alpha_vantage', 'polygon', 'openai', 'anthropic'
+            key_type: One of 'alpha_vantage', 'polygon', 'openai', 'anthropic', 'github'
             
         Returns:
             Decrypted API key or empty string
@@ -108,7 +130,7 @@ class APIKeyStorage:
         Save API keys (encrypted) to database.
         
         Args:
-            keys: Dictionary with keys: alpha_vantage, polygon, openai, anthropic
+            keys: Dictionary with keys: alpha_vantage, polygon, openai, anthropic, github
         """
         self._ensure_table_exists()  # Lazy table creation
         try:
@@ -118,18 +140,20 @@ class APIKeyStorage:
                 'polygon_key': encrypt_api_key(keys.get('polygon', '')),
                 'openai_key': encrypt_api_key(keys.get('openai', '')),
                 'anthropic_key': encrypt_api_key(keys.get('anthropic', '')),
+                'github_token': encrypt_api_key(keys.get('github', '')),
             }
             
             with self.engine.connect() as conn:
                 # Use INSERT ... ON CONFLICT UPDATE (UPSERT)
                 conn.execute(text("""
-                    INSERT INTO api_keys (id, alpha_vantage_key, polygon_key, openai_key, anthropic_key, updated_at)
-                    VALUES ('default', :alpha_vantage_key, :polygon_key, :openai_key, :anthropic_key, CURRENT_TIMESTAMP)
+                    INSERT INTO api_keys (id, alpha_vantage_key, polygon_key, openai_key, anthropic_key, github_token, updated_at)
+                    VALUES ('default', :alpha_vantage_key, :polygon_key, :openai_key, :anthropic_key, :github_token, CURRENT_TIMESTAMP)
                     ON CONFLICT (id) DO UPDATE SET
                         alpha_vantage_key = EXCLUDED.alpha_vantage_key,
                         polygon_key = EXCLUDED.polygon_key,
                         openai_key = EXCLUDED.openai_key,
                         anthropic_key = EXCLUDED.anthropic_key,
+                        github_token = EXCLUDED.github_token,
                         updated_at = CURRENT_TIMESTAMP
                 """), encrypted)
                 conn.commit()

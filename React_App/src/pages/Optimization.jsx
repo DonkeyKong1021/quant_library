@@ -8,9 +8,11 @@ import DataFetcher from '../components/DataFetcher'
 import StrategySelector from '../components/StrategySelector'
 import BacktestConfig from '../components/BacktestConfig'
 import OptimizationConfig from '../components/OptimizationConfig'
-import { backtestService } from '../services/backtestService'
+import { backtestService, workflowService } from '../services/backtestService'
 import OptimizationResults from '../components/OptimizationResults'
+import WorkflowStatus from '../components/WorkflowStatus'
 import { useThemeMode } from '../contexts/ThemeContext'
+import { formatTimeRemaining } from '../utils/timeEstimator'
 
 export default function Optimization() {
   const navigate = useNavigate()
@@ -24,6 +26,10 @@ export default function Optimization() {
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [workflowId, setWorkflowId] = useState(null)
+  const [optimizationStartTime, setOptimizationStartTime] = useState(null)
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState(null)
+  const [optimizationProgress, setOptimizationProgress] = useState(0)
   const [expandedAccordion, setExpandedAccordion] = useState('fetch-data')
   const [userHasManuallyExpanded, setUserHasManuallyExpanded] = useState(false)
 
@@ -94,42 +100,111 @@ export default function Optimization() {
       return
     }
 
+    // Check if estimated combinations exceed max for grid search
+    if (optimizationConfig.optimization_type === 'grid' && 
+        optimizationConfig.estimated_combinations && 
+        optimizationConfig.max_combinations) {
+      if (optimizationConfig.estimated_combinations > optimizationConfig.max_combinations) {
+        setError(
+          `Estimated combinations (${optimizationConfig.estimated_combinations.toLocaleString()}) ` +
+          `exceeds maximum (${optimizationConfig.max_combinations.toLocaleString()}). ` +
+          `Please reduce parameter ranges or increase max combinations.`
+        )
+        return
+      }
+    }
+
+    setError(null) // Clear any previous errors
     setLoading(true)
     setError(null)
     setResults(null)
+    setWorkflowId(null)
+    setOptimizationStartTime(Date.now())
+    setEstimatedTimeRemaining(null)
+    setOptimizationProgress(0)
 
     try {
       // Format parameter ranges for API
       const formattedRanges = {}
       Object.keys(optimizationConfig.parameter_ranges).forEach((paramName) => {
         const range = optimizationConfig.parameter_ranges[paramName]
-        formattedRanges[paramName] = {
+        const formattedRange = {
           min: range.min,
           max: range.max,
-          step: range.step,
           type: range.type || 'float',
         }
+        // Step is optional for workflow/minimize, required for grid
+        if (range.step !== undefined) {
+          formattedRange.step = range.step
+        }
+        formattedRanges[paramName] = formattedRange
       })
 
-      const response = await backtestService.optimizeParameters({
-        data,
-        strategy,
-        config,
-        symbol: selectedSymbol,
-        parameterRanges: formattedRanges,
-        objective: optimizationConfig.objective,
-        optimizationType: optimizationConfig.optimization_type,
-        maxCombinations: optimizationConfig.max_combinations,
-      })
+      // Check if this is a workflow optimization
+      if (optimizationConfig.optimization_type === 'workflow') {
+        // Start workflow
+        const workflow = await workflowService.createWorkflow({
+          data,
+          strategy,
+          config,
+          symbol: selectedSymbol,
+          parameterRanges: formattedRanges,
+          objective: optimizationConfig.objective,
+          maxIterations: optimizationConfig.max_iterations || 100,
+        })
+        setWorkflowId(workflow.workflow_id)
+        setLoading(false) // Workflow runs in background
+      } else {
+        // Use existing grid/minimize optimization
+        // Start progress estimation timer
+        const startTime = Date.now()
+        const totalCombinations = optimizationConfig.estimated_combinations || optimizationConfig.max_combinations || 100
+        
+        // For grid search, we can't track progress in real-time since it's a blocking call
+        // But we can show estimated time based on initial assumptions
+        // For minimize, we show a generic message
+        if (optimizationConfig.optimization_type === 'grid' && totalCombinations) {
+          // Estimate 0.5 seconds per combination as initial guess
+          const initialEstimate = (totalCombinations * 0.5)
+          setEstimatedTimeRemaining(initialEstimate)
+        } else if (optimizationConfig.optimization_type === 'minimize') {
+          // Estimate 30 seconds for minimize (it's usually faster)
+          setEstimatedTimeRemaining(30)
+        }
+        
+        const response = await backtestService.optimizeParameters({
+          data,
+          strategy,
+          config,
+          symbol: selectedSymbol,
+          parameterRanges: formattedRanges,
+          objective: optimizationConfig.objective,
+          optimizationType: optimizationConfig.optimization_type,
+          maxCombinations: optimizationConfig.max_combinations,
+        })
 
-      setResults(response)
+        setResults(response)
+        setLoading(false)
+        setEstimatedTimeRemaining(null)
+      }
     } catch (err) {
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to run optimization'
       setError(errorMessage)
       console.error('Optimization error:', err)
-    } finally {
       setLoading(false)
+      setEstimatedTimeRemaining(null)
+      setOptimizationProgress(0)
     }
+  }
+
+  const handleWorkflowCompleted = (workflowResults) => {
+    setResults(workflowResults)
+    setWorkflowId(null)
+  }
+
+  const handleWorkflowError = (errorMessage) => {
+    setError(errorMessage)
+    setWorkflowId(null)
   }
 
   // Calculate progress percentage based on completed steps
@@ -164,16 +239,33 @@ export default function Optimization() {
     }
     
     const ranges = optimizationConfig.parameter_ranges
-    return Object.keys(ranges).every((paramName) => {
+    const optimizationType = optimizationConfig.optimization_type || 'grid'
+    
+    const rangesValid = Object.keys(ranges).every((paramName) => {
       const range = ranges[paramName]
-      return (
+      const isValid = (
         range.min !== undefined &&
         range.max !== undefined &&
-        range.min < range.max &&
-        range.step !== undefined &&
-        range.step > 0
+        range.min < range.max
       )
+      
+      // Step is only required for grid search
+      if (optimizationType === 'grid') {
+        return isValid && range.step !== undefined && range.step > 0
+      }
+      
+      return isValid
     })
+    
+    // For grid search, also check if estimated combinations exceed max
+    if (optimizationType === 'grid' && optimizationConfig.estimated_combinations) {
+      const maxCombinations = optimizationConfig.max_combinations || 100
+      if (optimizationConfig.estimated_combinations > maxCombinations) {
+        return false
+      }
+    }
+    
+    return rangesValid
   }
 
   const canRunOptimization =
@@ -371,16 +463,64 @@ export default function Optimization() {
                 </Button>
               </Box>
 
-              {loading && (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <CircularProgress size={60} />
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                    Running optimization... This may take a while.
-                  </Typography>
+              {loading && !workflowId && (
+                <Box sx={{ py: 4 }}>
+                  <Box sx={{ textAlign: 'center', mb: 3 }}>
+                    <CircularProgress size={60} />
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                      Running optimization... This may take a while.
+                    </Typography>
+                  </Box>
+                  
+                  {/* Progress Bar for Grid Search */}
+                  {optimizationConfig?.optimization_type === 'grid' && optimizationConfig?.estimated_combinations && (
+                    <Box sx={{ mt: 3 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Progress: {optimizationProgress}%
+                        </Typography>
+                        {estimatedTimeRemaining !== null && (
+                          <Typography variant="body2" color="text.secondary">
+                            Est. remaining: {formatTimeRemaining(estimatedTimeRemaining)}
+                          </Typography>
+                        )}
+                      </Box>
+                      <LinearProgress 
+                        variant="determinate" 
+                        value={optimizationProgress} 
+                        sx={{ height: 8, borderRadius: 4 }}
+                      />
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                        Testing {optimizationConfig.estimated_combinations?.toLocaleString() || optimizationConfig.estimated_combinations} parameter combinations...
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {/* Progress info for minimize */}
+                  {optimizationConfig?.optimization_type === 'minimize' && (
+                    <Box sx={{ mt: 2, textAlign: 'center' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Running continuous optimization (L-BFGS-B algorithm)...
+                      </Typography>
+                      {estimatedTimeRemaining !== null && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                          Est. remaining: {formatTimeRemaining(estimatedTimeRemaining)}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
                 </Box>
               )}
 
-              {results && !loading && (
+              {workflowId && (
+                <WorkflowStatus
+                  workflowId={workflowId}
+                  onCompleted={handleWorkflowCompleted}
+                  onError={handleWorkflowError}
+                  maxIterations={optimizationConfig?.max_iterations || 100}
+                />
+              )}
+              {results && !loading && !workflowId && (
                 <OptimizationResults
                   results={results}
                   strategy={strategy}

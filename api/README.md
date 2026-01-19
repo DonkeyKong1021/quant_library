@@ -73,6 +73,9 @@ API documentation is available at:
 - `GET /api/settings/api-keys` - Get API keys status (masked for security)
 - `POST /api/settings/api-keys` - Save API keys (Alpha Vantage, Polygon, OpenAI, Anthropic)
 
+### Issues
+- `POST /api/issues/log` - Log an issue to GitHub (requires GITHUB_TOKEN environment variable)
+
 ### Health
 - `GET /api/health` - Health check endpoint
 - `GET /` - API root endpoint

@@ -37,6 +37,7 @@ async def get_api_keys():
             polygon_set=bool(keys.get('polygon', '')),
             openai_set=bool(keys.get('openai', '')),
             anthropic_set=bool(keys.get('anthropic', '')),
+            github_set=bool(keys.get('github', '')),
         )
     except Exception as e:
         logger.error(f"Error retrieving API keys: {e}")
@@ -62,10 +63,12 @@ async def save_api_keys(request: APIKeysRequest):
             keys_to_save['openai'] = request.openai
         if request.anthropic is not None:
             keys_to_save['anthropic'] = request.anthropic
+        if request.github is not None:
+            keys_to_save['github'] = request.github
         
         # Get existing keys and merge
         existing_keys = storage.get_all_keys()
-        for key_type in ['alpha_vantage', 'polygon', 'openai', 'anthropic']:
+        for key_type in ['alpha_vantage', 'polygon', 'openai', 'anthropic', 'github']:
             if key_type not in keys_to_save:
                 # Keep existing value if not provided
                 keys_to_save[key_type] = existing_keys.get(key_type, '')
@@ -79,6 +82,7 @@ async def save_api_keys(request: APIKeysRequest):
             polygon_set=bool(keys_to_save.get('polygon', '')),
             openai_set=bool(keys_to_save.get('openai', '')),
             anthropic_set=bool(keys_to_save.get('anthropic', '')),
+            github_set=bool(keys_to_save.get('github', '')),
         )
     except Exception as e:
         logger.error(f"Error saving API keys: {e}")

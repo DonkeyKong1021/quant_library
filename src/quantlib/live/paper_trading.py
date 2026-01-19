@@ -77,8 +77,9 @@ class PaperTradingEngine:
                 'Volume': data['volume'],
             }
             
-            # Update context
+            # Update context with current symbol and data
             context.current_time = data['timestamp']
+            context.symbol = symbol
             context.current_prices = {symbol: data['close']}
             
             # Call strategy
@@ -117,6 +118,7 @@ class PaperTradingEngine:
                 self.portfolio = engine.portfolio
                 self.current_time = datetime.now()
                 self.current_prices: Dict[str, float] = {}
+                self.symbol = None  # Will be set dynamically for each symbol
             
             def place_order(
                 self,

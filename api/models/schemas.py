@@ -229,6 +229,61 @@ class WalkForwardResponse(BaseModel):
     total_windows: int
 
 
+# ============================================================================
+# Workflow Models
+# ============================================================================
+
+from enum import Enum
+
+
+class WorkflowStatus(str, Enum):
+    """Workflow execution status"""
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+    stopped = "stopped"
+
+
+class WorkflowRequest(BaseModel):
+    """Request for agent workflow optimization"""
+    data: List[Dict[str, Any]] = Field(..., description="DataFrame serialized as list of dicts")
+    strategy: Dict[str, Any] = Field(..., description="Strategy configuration (type and base params)")
+    config: Dict[str, Any] = Field(..., description="Backtest configuration")
+    symbol: str = Field(..., description="Trading symbol")
+    parameter_ranges: Dict[str, ParameterRange] = Field(..., description="Parameter ranges to optimize")
+    objective: str = Field("sharpe_ratio", description="Objective metric to optimize")
+    max_iterations: int = Field(100, description="Maximum optimization iterations", ge=1, le=10000)
+    n_workers: Optional[int] = Field(None, description="Number of parallel workers (default: CPU count)")
+
+
+class WorkflowResultSummary(BaseModel):
+    """Summary of a single workflow result"""
+    parameters: Dict[str, Any]
+    objective_value: float
+    metrics: Optional[Dict[str, Any]] = None
+
+
+class WorkflowResponse(BaseModel):
+    """Response from workflow creation"""
+    workflow_id: str
+    status: WorkflowStatus
+    progress: int = Field(0, ge=0, le=100)
+    message: Optional[str] = None
+
+
+class WorkflowStatusResponse(BaseModel):
+    """Detailed workflow status response"""
+    workflow_id: str
+    status: WorkflowStatus
+    progress: int = Field(0, ge=0, le=100)
+    best_result: Optional[WorkflowResultSummary] = None
+    top_results: List[WorkflowResultSummary] = Field(default_factory=list)
+    total_backtests: int = 0
+    elapsed_seconds: Optional[float] = None
+    error: Optional[str] = None
+
+
 class StrategyLibraryItem(BaseModel):
     """Strategy library item summary"""
     id: str
@@ -284,6 +339,7 @@ class APIKeysRequest(BaseModel):
     polygon: Optional[str] = Field(None, description="Polygon.io API key")
     openai: Optional[str] = Field(None, description="OpenAI API key")
     anthropic: Optional[str] = Field(None, description="Anthropic API key")
+    github: Optional[str] = Field(None, description="GitHub personal access token for issue logging")
 
 
 class APIKeysResponse(BaseModel):
@@ -292,3 +348,48 @@ class APIKeysResponse(BaseModel):
     polygon_set: bool = Field(..., description="Whether Polygon.io key is set")
     openai_set: bool = Field(..., description="Whether OpenAI key is set")
     anthropic_set: bool = Field(..., description="Whether Anthropic key is set")
+    github_set: bool = Field(..., description="Whether GitHub token is set")
+
+
+# ============================================================================
+# Issue Logging Models
+# ============================================================================
+
+class IssueType(str, Enum):
+    """Type of issue being reported"""
+    bug = "bug"
+    feature_request = "feature_request"
+    documentation = "documentation"
+    performance = "performance"
+    ui_ux = "ui_ux"
+    other = "other"
+
+
+class IssueSeverity(str, Enum):
+    """Severity level of the issue"""
+    low = "low"
+    medium = "medium"
+    high = "high"
+    critical = "critical"
+
+
+class IssueLogRequest(BaseModel):
+    """Request to log an issue to GitHub"""
+    title: str = Field(..., min_length=5, max_length=200, description="Issue title")
+    description: str = Field(..., min_length=10, description="Detailed description of the issue")
+    issue_type: IssueType = Field(..., description="Type of issue")
+    severity: Optional[IssueSeverity] = Field(IssueSeverity.medium, description="Severity level")
+    environment: Optional[Dict[str, str]] = Field(default_factory=dict, description="Environment details (browser, OS, etc.)")
+    steps_to_reproduce: Optional[List[str]] = Field(default_factory=list, description="Steps to reproduce the issue")
+    expected_behavior: Optional[str] = Field(None, description="Expected behavior")
+    actual_behavior: Optional[str] = Field(None, description="Actual behavior")
+    additional_info: Optional[str] = Field(None, description="Additional information")
+    user_email: Optional[str] = Field(None, description="Optional user email for follow-up")
+
+
+class IssueLogResponse(BaseModel):
+    """Response from issue logging"""
+    success: bool = Field(..., description="Whether the issue was successfully logged")
+    issue_url: Optional[str] = Field(None, description="URL of the created GitHub issue")
+    issue_number: Optional[int] = Field(None, description="GitHub issue number")
+    message: str = Field(..., description="Response message")
