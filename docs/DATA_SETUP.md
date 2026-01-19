@@ -41,22 +41,51 @@ You can modify or replace `tickers.json` with your own list of symbols.
    brew services start postgresql  # or: sudo systemctl start postgresql
    ```
 
-3. **Create the database**:
+3. **Create the databases**:
+
+   QuantLib uses separate databases for each data source. Create all source databases:
    ```bash
+   # Option 1: Use the helper script (recommended)
+   python scripts/create_source_databases.py
+   
+   # Option 2: Create manually
+   createdb quant_library_yahoo
+   createdb quant_library_alphavantage
+   createdb quant_library_polygon
+   
+   # Also create default database for backtest results and API keys
    createdb quant_library
    ```
 
-4. **Set environment variable** (optional, has defaults):
+4. **Set environment variables** (optional, has defaults):
+
+   For source-specific databases:
+   ```bash
+   export DATABASE_URL_YAHOO="postgresql://postgres:postgres@localhost:5432/quant_library_yahoo"
+   export DATABASE_URL_ALPHA_VANTAGE="postgresql://postgres:postgres@localhost:5432/quant_library_alphavantage"
+   export DATABASE_URL_POLYGON="postgresql://postgres:postgres@localhost:5432/quant_library_polygon"
+   ```
+
+   For default database (backtest results, API keys):
    ```bash
    export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/quant_library"
    ```
 
 ### Step 2: Initialize Database Schema
 
-This creates the empty tables and indexes (no data yet):
+Initialize all source databases:
 
 ```bash
-python scripts/init_database.py
+# Option 1: Initialize all source databases at once (recommended)
+python scripts/init_database.py --all-sources
+
+# Option 2: Initialize specific source database
+python scripts/init_database.py --source yahoo
+python scripts/init_database.py --source alpha_vantage
+python scripts/init_database.py --source polygon
+
+# Option 3: Use the creation script (creates and initializes)
+python scripts/create_source_databases.py
 ```
 
 You should see:
@@ -176,9 +205,11 @@ QuantLib supports multiple data sources for fetching market data. You can config
 #### Alpha Vantage
 - **Free tier**: 5 calls/minute, 500 calls/day
 - **API key required**: Get one at https://www.alphavantage.co/support/#api-key
-- **Historical data**: Full history available
+- **Historical data**: Last 100 data points only (free tier) - approximately 5 months of daily data
+- **Premium tier**: Full history available with `outputsize=full` parameter
 - **Intervals**: Daily only (`1d`)
 - **Setup**: Set `ALPHA_VANTAGE_API_KEY` environment variable
+- **Note**: Free tier is limited to `outputsize=compact` (last 100 points). Premium features like `outputsize=full` require a paid subscription.
 
 #### Polygon.io
 - **Free tier**: Available (see https://polygon.io/pricing)
@@ -264,8 +295,8 @@ python scripts/fetch_all_tickers.py --data-source polygon
 
 | Source | API Key Required | Free Tier | Rate Limits | Historical Data | Intervals |
 |--------|-----------------|-----------|-------------|-----------------|-----------|
-| Yahoo Finance | No | Yes | Informal | Extensive | All |
-| Alpha Vantage | Yes | 500 calls/day | 5 calls/min | Full history | Daily only |
+| Yahoo Finance | No | Yes | Informal | Extensive (decades) | All |
+| Alpha Vantage | Yes | 500 calls/day | 5 calls/min | Last 100 points (free)<br/>Full history (premium) | Daily only |
 | Polygon.io | Yes | Varies by plan | Varies by plan | Since 2003 | Multiple |
 | IEX Cloud | Yes | Deprecated | N/A | N/A | N/A |
 

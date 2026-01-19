@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from datetime import datetime, timedelta
+from typing import Optional
 import pandas as pd
 
 # Add project root to path
@@ -55,27 +56,32 @@ def load_tickers_json() -> dict:
 
 
 def get_all_symbols_with_metadata() -> list:
-    """Get all symbols from all sources with metadata"""
+    """Get all symbols from all sources with metadata (aggregated across all source databases)"""
     symbols_dict = {}
     common_symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "SPY"]
 
     # Add common symbols
     for sym in common_symbols:
-        symbols_dict[sym.upper()] = {"source": "Common", "sector": None, "in_database": False}
+        symbols_dict[sym.upper()] = {"source": "Common", "sector": None, "in_database": False, "data_sources": []}
 
-    # Add database symbols
-    try:
-        store = DataStore()
-        db_symbols = store.list_symbols()
-        for sym in db_symbols:
-            sym_upper = sym.upper()
-            if sym_upper not in symbols_dict:
-                symbols_dict[sym_upper] = {"source": "DB", "sector": None, "in_database": True}
-            else:
-                symbols_dict[sym_upper]["source"] = "DB"
-                symbols_dict[sym_upper]["in_database"] = True
-    except Exception:
-        pass
+    # Query all source databases for symbols
+    data_sources = ['yahoo', 'alpha_vantage', 'polygon']
+    for source in data_sources:
+        try:
+            store = DataStore(data_source=source)
+            db_symbols = store.list_symbols()
+            for sym in db_symbols:
+                sym_upper = sym.upper()
+                if sym_upper not in symbols_dict:
+                    symbols_dict[sym_upper] = {"source": "DB", "sector": None, "in_database": True, "data_sources": [source]}
+                else:
+                    symbols_dict[sym_upper]["source"] = "DB"
+                    symbols_dict[sym_upper]["in_database"] = True
+                    if source not in symbols_dict[sym_upper]["data_sources"]:
+                        symbols_dict[sym_upper]["data_sources"].append(source)
+        except Exception:
+            # Skip this source if database doesn't exist or connection fails
+            pass
 
     # Add tickers from tickers.json
     tickers_data = load_tickers_json()
@@ -198,12 +204,16 @@ async def fetch_data(request: DataFetchRequest):
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-        store = DataStore()
+        # Determine data source (default to 'yahoo')
+        data_source = request.data_source or 'yahoo'
+        
+        # Create DataStore for the specific data source
+        store = DataStore(data_source=data_source)
         
         # Create fetcher using registry
         try:
             registry = get_registry()
-            fetcher = registry.create(source=request.data_source)
+            fetcher = registry.create(source=data_source)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
@@ -302,10 +312,16 @@ async def fetch_data(request: DataFetchRequest):
 
 
 @router.get("/preview/{symbol}")
-async def get_data_preview(symbol: str):
-    """Get data preview for a symbol (latest data from database)"""
+async def get_data_preview(symbol: str, data_source: Optional[str] = None):
+    """Get data preview for a symbol (latest data from database)
+    
+    Args:
+        symbol: Stock symbol
+        data_source: Data source to query ('yahoo', 'alpha_vantage', 'polygon'). Defaults to 'yahoo'.
+    """
     try:
-        store = DataStore()
+        data_source = data_source or 'yahoo'
+        store = DataStore(data_source=data_source)
         # Get metadata to find date range
         metadata = store.get_metadata(symbol.upper())
         if not metadata or not metadata.get("start_date"):

@@ -180,21 +180,37 @@ See the [Data Setup Guide](docs/DATA_SETUP.md) for complete instructions on:
 
 ### Database Configuration
 
-The library uses PostgreSQL for storing market data. Configure the database connection using the `DATABASE_URL` environment variable:
+The library uses PostgreSQL with **separate databases for each data source**. Configure database connections using environment variables:
 
 ```bash
-# Default connection (localhost, default credentials)
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/quant_library"
+# Source-specific databases (market data)
+export DATABASE_URL_YAHOO="postgresql://postgres:postgres@localhost:5432/quant_library_yahoo"
+export DATABASE_URL_ALPHA_VANTAGE="postgresql://postgres:postgres@localhost:5432/quant_library_alphavantage"
+export DATABASE_URL_POLYGON="postgresql://postgres:postgres@localhost:5432/quant_library_polygon"
 
-# Custom connection
-export DATABASE_URL="postgresql://username:password@host:port/database"
+# Default database (backtest results, API keys)
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/quant_library"
 ```
 
-Or pass the connection URL directly when initializing `DataStore`:
+**Setup databases:**
+```bash
+# Create and initialize all source databases
+python scripts/create_source_databases.py
 
+# Or initialize individually
+python scripts/init_database.py --all-sources
+```
+
+**DataStore usage:**
 ```python
 from quantlib.data import DataStore
 
+# Use source-specific database
+store = DataStore(data_source='yahoo')  # Routes to quant_library_yahoo
+store = DataStore(data_source='alpha_vantage')  # Routes to quant_library_alphavantage
+store = DataStore(data_source='polygon')  # Routes to quant_library_polygon
+
+# Or use custom database URL (backward compatibility)
 store = DataStore(database_url="postgresql://user:pass@host:port/db")
 ```
 

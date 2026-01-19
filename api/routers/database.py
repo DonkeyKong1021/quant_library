@@ -37,11 +37,22 @@ async def get_database_status():
 
 @router.get("/symbols")
 async def get_database_symbols():
-    """Get list of all symbols in database"""
+    """Get list of all symbols across all source databases (aggregated)"""
     try:
-        store = DataStore()
-        symbols = store.list_symbols()
-        return {"symbols": symbols}
+        # Aggregate symbols from all source databases
+        all_symbols = set()
+        data_sources = ['yahoo', 'alpha_vantage', 'polygon']
+        
+        for source in data_sources:
+            try:
+                store = DataStore(data_source=source)
+                symbols = store.list_symbols()
+                all_symbols.update(symbols)
+            except Exception:
+                # Skip this source if database doesn't exist or connection fails
+                pass
+        
+        return {"symbols": sorted(list(all_symbols))}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching symbols: {str(e)}")
 
@@ -151,7 +162,8 @@ async def update_all_tickers():
         start_date = (today - timedelta(days=365 * 10)).strftime('%Y-%m-%d')
         
         # Initialize store and fetcher
-        store = DataStore()
+        # Use Yahoo Finance database for bulk updates (default source)
+        store = DataStore(data_source='yahoo')
         registry = get_registry()
         fetcher = registry.create(source='yahoo')  # Use yfinance
         

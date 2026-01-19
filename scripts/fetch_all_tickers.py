@@ -214,10 +214,15 @@ def main():
     print(f"\n3. Initializing data fetcher and database connection...")
     try:
         registry = get_registry()
-        fetcher = registry.create(source=args.data_source)
-        source_name = args.data_source or "default"
+        data_source = args.data_source or 'yahoo'  # Default to yahoo for bulk fetches
+        fetcher = registry.create(source=data_source)
+        source_name = data_source
         print(f"   Using data source: {source_name}")
-        store = DataStore(database_url=args.database_url)
+        # Use data_source parameter if database_url not explicitly provided
+        if args.database_url:
+            store = DataStore(database_url=args.database_url)
+        else:
+            store = DataStore(data_source=data_source)
         print("   ✅ Initialized successfully")
     except Exception as e:
         print(f"   ❌ Error initializing: {e}")
