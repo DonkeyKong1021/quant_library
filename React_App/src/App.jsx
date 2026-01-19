@@ -10,6 +10,7 @@ const Backtest = lazy(() => import('./pages/Backtest'))
 const DataExplorer = lazy(() => import('./pages/DataExplorer'))
 const StrategyBuilder = lazy(() => import('./pages/StrategyBuilder'))
 const BacktestHistory = lazy(() => import('./pages/BacktestHistory'))
+const Optimization = lazy(() => import('./pages/Optimization'))
 
 // Loading component
 const PageLoader = () => (
@@ -71,6 +72,16 @@ function App() {
                   <ErrorBoundary>
                     <Suspense fallback={<PageLoader />}>
                       <StrategyBuilder />
+                    </Suspense>
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/optimization"
+                element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<PageLoader />}>
+                      <Optimization />
                     </Suspense>
                   </ErrorBoundary>
                 }

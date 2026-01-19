@@ -33,12 +33,20 @@ export default function Backtest() {
     'run-results': null
   })
 
-  // Check for custom strategy from navigation state
+  // Check for custom strategy or optimized parameters from navigation state
   useEffect(() => {
     if (location.state?.customStrategyId) {
       const customStrategyId = location.state.customStrategyId
       setInitialCustomStrategyId(customStrategyId)
       // Clear the state to avoid re-applying on re-renders
+      window.history.replaceState({}, document.title)
+    }
+    
+    // Handle optimized parameters
+    if (location.state?.optimizedParams && location.state?.strategy) {
+      setStrategy(location.state.strategy)
+      // Note: StrategySelector will need to be updated to accept initial parameters
+      // For now, we'll set the strategy and let the user configure it
       window.history.replaceState({}, document.title)
     }
   }, [location.state])
@@ -255,6 +263,7 @@ export default function Backtest() {
                 <StrategySelector
                   onStrategySelected={handleStrategySelected}
                   initialCustomStrategyId={initialCustomStrategyId}
+                  initialParams={location.state?.optimizedParams}
                 />
               </Box>
 

@@ -14,10 +14,12 @@ import HomeIcon from '@mui/icons-material/Home'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import ExploreIcon from '@mui/icons-material/Explore'
 import BuildIcon from '@mui/icons-material/Build'
+import TuneIcon from '@mui/icons-material/Tune'
 
 const menuItems = [
   { text: 'Dashboard', icon: <HomeIcon />, path: '/' },
   { text: 'Backtest', icon: <TrendingUpIcon />, path: '/backtest' },
+  { text: 'Optimization', icon: <TuneIcon />, path: '/optimization' },
   { text: 'Data Explorer', icon: <ExploreIcon />, path: '/data-explorer' },
   { text: 'Strategy Builder', icon: <BuildIcon />, path: '/strategy-builder' },
 ]

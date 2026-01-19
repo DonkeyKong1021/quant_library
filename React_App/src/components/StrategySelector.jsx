@@ -18,9 +18,9 @@ import { useQuery } from '@tanstack/react-query'
 import { strategyService } from '../services/backtestService'
 import { strategyStorage } from '../utils/strategyStorage'
 
-export default function StrategySelector({ onStrategySelected, initialCustomStrategyId }) {
+export default function StrategySelector({ onStrategySelected, initialCustomStrategyId, initialParams }) {
   const [strategyType, setStrategyType] = useState('moving_average')
-  const [params, setParams] = useState({})
+  const [params, setParams] = useState(initialParams || {})
   const [customStrategyId, setCustomStrategyId] = useState('')
   const [savedStrategies, setSavedStrategies] = useState([])
 
@@ -54,13 +54,16 @@ export default function StrategySelector({ onStrategySelected, initialCustomStra
   // Initialize default parameters
   useEffect(() => {
     if (strategyType !== 'custom' && strategyParams && strategyParams.parameters) {
-      const defaults = {}
+      // Use initialParams if provided, otherwise use defaults
+      const defaults = initialParams || {}
       Object.keys(strategyParams.parameters).forEach((key) => {
-        defaults[key] = strategyParams.parameters[key].default
+        if (!(key in defaults)) {
+          defaults[key] = strategyParams.parameters[key].default
+        }
       })
       setParams(defaults)
     }
-  }, [strategyParams, strategyType])
+  }, [strategyParams, strategyType, initialParams])
 
   // Notify parent when strategy changes
   useEffect(() => {

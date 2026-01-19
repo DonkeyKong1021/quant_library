@@ -48,11 +48,16 @@ export default function OptimizationConfig({
     const ranges = {}
     Object.keys(strategyParams.parameters).forEach((paramName) => {
       const paramDef = strategyParams.parameters[paramName]
+      const defaultValue = paramDef.default || 0
       ranges[paramName] = {
-        min: paramDef.min || (paramDef.default - (paramDef.default * 0.5)),
-        max: paramDef.max || (paramDef.default + (paramDef.default * 0.5)),
+        min: paramDef.min !== undefined ? paramDef.min : (defaultValue - Math.abs(defaultValue * 0.5)),
+        max: paramDef.max !== undefined ? paramDef.max : (defaultValue + Math.abs(defaultValue * 0.5)),
         step: paramDef.type === 'int' ? 1 : 0.1,
         type: paramDef.type || 'float',
+      }
+      // Ensure min < max
+      if (ranges[paramName].min >= ranges[paramName].max) {
+        ranges[paramName].max = ranges[paramName].min + (paramDef.type === 'int' ? 10 : 1.0)
       }
     })
     setParameterRanges(ranges)
@@ -260,6 +265,8 @@ export default function OptimizationConfig({
                             inputProps={{
                               step: paramType === 'int' ? 1 : 0.1,
                             }}
+                            error={range.min !== undefined && range.max !== undefined && range.min >= range.max}
+                            helperText={range.min !== undefined && range.max !== undefined && range.min >= range.max ? 'Min must be less than Max' : ''}
                           />
                         </Grid>
                         <Grid item xs={6}>
@@ -275,6 +282,7 @@ export default function OptimizationConfig({
                             inputProps={{
                               step: paramType === 'int' ? 1 : 0.1,
                             }}
+                            error={range.min !== undefined && range.max !== undefined && range.min >= range.max}
                           />
                         </Grid>
                         {optimizationType === 'grid' && (
@@ -292,7 +300,10 @@ export default function OptimizationConfig({
                                 min: paramType === 'int' ? 1 : 0.01,
                                 step: paramType === 'int' ? 1 : 0.01,
                               }}
-                              helperText={`Default: ${paramDef.default || 'N/A'}`}
+                              error={range.step !== undefined && range.step <= 0}
+                              helperText={range.step !== undefined && range.step <= 0 
+                                ? 'Step must be greater than 0'
+                                : `Default: ${paramDef.default || 'N/A'}`}
                             />
                           </Grid>
                         )}

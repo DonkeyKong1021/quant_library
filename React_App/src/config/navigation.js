@@ -8,6 +8,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import ExploreIcon from '@mui/icons-material/Explore'
 import BuildIcon from '@mui/icons-material/Build'
 import HistoryIcon from '@mui/icons-material/History'
+import TuneIcon from '@mui/icons-material/Tune'
 
 /**
  * Navigation items configuration
@@ -54,6 +55,14 @@ export const navigationItems = [
     description: 'Create and edit trading strategies',
     group: 'main',
   },
+  {
+    text: 'Optimization',
+    icon: TuneIcon,
+    path: '/optimization',
+    shortcut: '5',
+    description: 'Optimize strategy parameters',
+    group: 'backtest',
+  },
 ]
 
 /**
@@ -61,6 +70,7 @@ export const navigationItems = [
  */
 export const routeLabels = {
   '/': 'Dashboard',
+  '/optimization': 'Optimization',
   '/backtest': 'Backtesting',
   '/backtest-history': 'Backtest History',
   '/data-explorer': 'Data Explorer',
