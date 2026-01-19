@@ -47,6 +47,7 @@ import { strategyStorage } from '../utils/strategyStorage'
 import { validateStrategyCode, extractClassName } from '../utils/strategyValidator'
 import { getLibraryStrategyCode } from '../services/strategyLibraryService'
 import { useNotifications } from '../hooks/useNotifications.jsx'
+import { getTemplate } from '../utils/strategyTemplates'
 
 export default function StrategyBuilder() {
   const navigate = useNavigate()
@@ -163,6 +164,32 @@ export default function StrategyBuilder() {
   // Load saved strategies on mount
   useEffect(() => {
     loadSavedStrategies()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Preload default template strategy on mount if editor is empty
+  useEffect(() => {
+    if (!code.trim()) {
+      const defaultTemplate = getTemplate('simple')
+      if (defaultTemplate && defaultTemplate.code) {
+        const templateCode = defaultTemplate.code
+        const className = extractClassName(templateCode)
+        const templateName = className 
+          ? className.replace('Strategy', '').replace(/([A-Z])/g, ' $1').trim()
+          : defaultTemplate.name
+        
+        setCode(templateCode)
+        setStrategyName(templateName)
+        
+        // Update initial state ref directly to avoid async state issues
+        initialStateRef.current = {
+          code: templateCode.trim(),
+          name: templateName.trim(),
+          description: '',
+        }
+        setHasUnsavedChanges(false)
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
