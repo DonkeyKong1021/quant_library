@@ -19,11 +19,13 @@ import {
 } from '@mui/material'
 import { motion } from 'framer-motion'
 import { useThemeMode } from '../contexts/ThemeContext'
+import { chartLibraryStorage } from '../utils/chartLibraryStorage'
 import CloseIcon from '@mui/icons-material/Close'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import SpeedIcon from '@mui/icons-material/Speed'
 import StorageIcon from '@mui/icons-material/Storage'
+import BarChartIcon from '@mui/icons-material/BarChart'
 
 export default function SettingsModal({ open, onClose }) {
   const { isDark, toggleTheme } = useThemeMode()
@@ -31,6 +33,7 @@ export default function SettingsModal({ open, onClose }) {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [refreshInterval, setRefreshInterval] = useState(30)
   const [defaultDataSource, setDefaultDataSource] = useState('yahoo')
+  const [chartLibrary, setChartLibrary] = useState(() => chartLibraryStorage.get())
 
   const handleSave = () => {
     // In a real app, save settings to localStorage or backend
@@ -219,6 +222,50 @@ export default function SettingsModal({ open, onClose }) {
                 </Box>
               </motion.div>
             )}
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Chart Settings Section */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 600 }}>
+            Chart Settings
+          </Typography>
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: 2,
+              backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+              border: '1px solid',
+              borderColor: 'divider',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2.5,
+            }}
+          >
+            <FormControl fullWidth size="small">
+              <InputLabel>Chart Library</InputLabel>
+              <Select
+                value={chartLibrary}
+                label="Chart Library"
+                onChange={(e) => {
+                  const newLibrary = e.target.value
+                  setChartLibrary(newLibrary)
+                  chartLibraryStorage.set(newLibrary)
+                  // Trigger chart library change event
+                  window.dispatchEvent(new Event('chartLibraryChanged'))
+                }}
+                startAdornment={
+                  <BarChartIcon sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />
+                }
+              >
+                <MenuItem value="plotly">Plotly (Default)</MenuItem>
+                <MenuItem value="tradingview">TradingView Lightweight Charts</MenuItem>
+              </Select>
+            </FormControl>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+              TradingView is optimized for financial charts with better performance for large datasets.
+              Plotly offers more chart types including heatmaps and histograms.
+            </Typography>
           </Box>
         </Box>
       </DialogContent>

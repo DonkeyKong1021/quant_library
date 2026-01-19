@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Paper,
   TextField,
@@ -12,6 +12,7 @@ import {
   FormControlLabel,
   Checkbox,
   Divider,
+  Button,
 } from '@mui/material'
 export default function BacktestConfig({ onConfigChanged }) {
   const [initialCapital, setInitialCapital] = useState(100000)
@@ -21,7 +22,7 @@ export default function BacktestConfig({ onConfigChanged }) {
   const [useBenchmark, setUseBenchmark] = useState(true)
   const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
 
-  useEffect(() => {
+  const handleConfig = () => {
     if (onConfigChanged) {
       onConfigChanged({
         initial_capital: initialCapital,
@@ -32,8 +33,7 @@ export default function BacktestConfig({ onConfigChanged }) {
         benchmark_symbol: benchmarkSymbol,
       })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialCapital, commission, slippage, commissionType, useBenchmark, benchmarkSymbol])
+  }
 
   return (
     <Paper sx={{ p: 4, elevation: 1 }}>
@@ -119,6 +119,20 @@ export default function BacktestConfig({ onConfigChanged }) {
               placeholder="SPY"
             />
           )}
+        </Grid>
+
+        {/* Config Button */}
+        <Grid item xs={12}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            <Button
+              variant="contained"
+              onClick={handleConfig}
+              size="large"
+              sx={{ minWidth: 120 }}
+            >
+              Config
+            </Button>
+          </Box>
         </Grid>
       </Grid>
     </Paper>

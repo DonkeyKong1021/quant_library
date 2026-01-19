@@ -12,25 +12,25 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  List,
-  ListItem,
-  ListItemText,
+  IconButton,
 } from '@mui/material'
+import PreviewIcon from '@mui/icons-material/Preview'
 import { getAllTemplates } from '../utils/strategyTemplates'
+import StrategyEditor from './StrategyEditor'
 
 export default function StrategyTemplates({ onSelectTemplate }) {
-  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [previewTemplate, setPreviewTemplate] = useState(null)
   const templates = getAllTemplates()
 
   const handleTemplateClick = (template) => {
-    setSelectedTemplate(template)
+    if (onSelectTemplate) {
+      onSelectTemplate(template.code)
+    }
   }
 
-  const handleUseTemplate = () => {
-    if (selectedTemplate && onSelectTemplate) {
-      onSelectTemplate(selectedTemplate.code)
-    }
-    setSelectedTemplate(null)
+  const handlePreviewClick = (e, template) => {
+    e.stopPropagation()
+    setPreviewTemplate(template)
   }
 
   return (
@@ -59,13 +59,23 @@ export default function StrategyTemplates({ onSelectTemplate }) {
                       <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
                         {template.name}
                       </Typography>
-                      <Chip 
-                        label="Template" 
-                        size="small" 
-                        color="primary" 
-                        variant="outlined"
-                        sx={{ flexShrink: 0 }}
-                      />
+                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handlePreviewClick(e, template)}
+                          sx={{ p: 0.5 }}
+                          title="Preview code"
+                        >
+                          <PreviewIcon fontSize="small" />
+                        </IconButton>
+                        <Chip 
+                          label="Template" 
+                          size="small" 
+                          color="primary" 
+                          variant="outlined"
+                          sx={{ flexShrink: 0 }}
+                        />
+                      </Box>
                     </Box>
                     <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
                       {template.description}
@@ -78,19 +88,49 @@ export default function StrategyTemplates({ onSelectTemplate }) {
         </Grid>
       </Box>
 
-      <Dialog open={!!selectedTemplate} onClose={() => setSelectedTemplate(null)} maxWidth="md" fullWidth>
-        <DialogTitle>{selectedTemplate?.name}</DialogTitle>
+      {/* Preview Dialog */}
+      <Dialog 
+        open={!!previewTemplate} 
+        onClose={() => setPreviewTemplate(null)} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{
+          sx: { height: '80vh' }
+        }}
+      >
+        <DialogTitle>
+          {previewTemplate?.name}
+          <Chip 
+            label="Template Preview" 
+            size="small" 
+            color="primary" 
+            variant="outlined"
+            sx={{ ml: 1 }}
+          />
+        </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {selectedTemplate?.description}
+            {previewTemplate?.description}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Click "Use Template" to load this template into the editor.
-          </Typography>
+          <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+            <StrategyEditor 
+              code={previewTemplate?.code || ''} 
+              readOnly={true}
+              height="500px"
+            />
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelectedTemplate(null)}>Cancel</Button>
-          <Button onClick={handleUseTemplate} variant="contained">
+          <Button onClick={() => setPreviewTemplate(null)}>Close</Button>
+          <Button 
+            onClick={() => {
+              if (previewTemplate && onSelectTemplate) {
+                onSelectTemplate(previewTemplate.code)
+              }
+              setPreviewTemplate(null)
+            }} 
+            variant="contained"
+          >
             Use Template
           </Button>
         </DialogActions>

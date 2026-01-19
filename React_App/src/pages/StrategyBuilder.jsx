@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Container,
   Typography,
@@ -17,15 +17,23 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   IconButton,
-  Divider,
   Tab,
   Tabs,
   Chip,
+  CircularProgress,
+  InputAdornment,
+  Menu,
+  MenuItem,
+  Badge,
 } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
 import DeleteIcon from '@mui/icons-material/Delete'
 import CodeIcon from '@mui/icons-material/Code'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import SearchIcon from '@mui/icons-material/Search'
+import DownloadIcon from '@mui/icons-material/Download'
+import UploadIcon from '@mui/icons-material/Upload'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { useNavigate } from 'react-router-dom'
 import StrategyEditor from '../components/StrategyEditor'
 import StrategyTemplates from '../components/StrategyTemplates'
@@ -33,19 +41,64 @@ import StrategyLibrary from '../components/StrategyLibrary'
 import { strategyStorage } from '../utils/strategyStorage'
 import { validateStrategyCode, extractClassName } from '../utils/strategyValidator'
 import { getLibraryStrategyCode } from '../services/strategyLibraryService'
+import { useNotifications } from '../hooks/useNotifications'
 
 export default function StrategyBuilder() {
   const navigate = useNavigate()
+  const { showSuccess, showError, showWarning, showInfo, NotificationComponent } = useNotifications()
+  
   const [code, setCode] = useState('')
   const [strategyName, setStrategyName] = useState('')
   const [description, setDescription] = useState('')
   const [validationResult, setValidationResult] = useState(null)
   const [savedStrategies, setSavedStrategies] = useState([])
+  const [filteredStrategies, setFilteredStrategies] = useState([])
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteStrategyId, setDeleteStrategyId] = useState(null)
   const [selectedStrategy, setSelectedStrategy] = useState(null)
   const [tabValue, setTabValue] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [exportMenuAnchor, setExportMenuAnchor] = useState(null)
+  const [importFileInputRef, setImportFileInputRef] = useState(null)
+
+  // Track initial state for unsaved changes detection
+  const initialStateRef = useRef({ code: '', name: '', description: '' })
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+
+  // Track unsaved changes
+  useEffect(() => {
+    const currentState = {
+      code: code.trim(),
+      name: strategyName.trim(),
+      description: description.trim(),
+    }
+    const initial = initialStateRef.current
+    const changed = 
+      currentState.code !== initial.code ||
+      currentState.name !== initial.name ||
+      currentState.description !== initial.description
+    setHasUnsavedChanges(changed)
+  }, [code, strategyName, description])
+
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
+        return e.returnValue
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
+
 
   const handleLibraryStrategySelect = async (strategyId) => {
+    setLoading(true)
     try {
       const data = await getLibraryStrategyCode(strategyId)
       if (data.code) {
@@ -54,17 +107,48 @@ export default function StrategyBuilder() {
         if (className && !strategyName) {
           setStrategyName(data.name || className.replace('Strategy', '').replace(/([A-Z])/g, ' $1').trim())
         }
+        updateInitialState()
+        showSuccess('Strategy loaded successfully')
       }
     } catch (error) {
-      alert('Error loading strategy code: ' + error.message)
+      showError('Error loading strategy code: ' + error.message)
       console.error('Error loading strategy:', error)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  const updateInitialState = () => {
+    initialStateRef.current = {
+      code: code.trim(),
+      name: strategyName.trim(),
+      description: description.trim(),
+    }
+    setHasUnsavedChanges(false)
   }
 
   const loadSavedStrategies = () => {
     const strategies = strategyStorage.getAll()
     setSavedStrategies(strategies)
+    filterStrategies(strategies, searchQuery)
   }
+
+  const filterStrategies = (strategies, query) => {
+    if (!query.trim()) {
+      setFilteredStrategies(strategies)
+      return
+    }
+    const lowerQuery = query.toLowerCase()
+    const filtered = strategies.filter((strategy) => 
+      strategy.name.toLowerCase().includes(lowerQuery) ||
+      (strategy.description && strategy.description.toLowerCase().includes(lowerQuery))
+    )
+    setFilteredStrategies(filtered)
+  }
+
+  useEffect(() => {
+    filterStrategies(savedStrategies, searchQuery)
+  }, [searchQuery, savedStrategies])
 
   // Load saved strategies on mount
   useEffect(() => {
@@ -72,14 +156,18 @@ export default function StrategyBuilder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Validate code when it changes
+  // Validate code when it changes (debounced)
   useEffect(() => {
-    if (code.trim()) {
-      const result = validateStrategyCode(code)
-      setValidationResult(result)
-    } else {
-      setValidationResult(null)
-    }
+    const timeoutId = setTimeout(() => {
+      if (code.trim()) {
+        const result = validateStrategyCode(code)
+        setValidationResult(result)
+      } else {
+        setValidationResult(null)
+      }
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
   }, [code])
 
   const handleTemplateSelect = (templateCode) => {
@@ -87,6 +175,42 @@ export default function StrategyBuilder() {
     const className = extractClassName(templateCode)
     if (className && !strategyName) {
       setStrategyName(className.replace('Strategy', '').replace(/([A-Z])/g, ' $1').trim())
+    }
+    updateInitialState()
+  }
+
+  const checkForDuplicate = (name) => {
+    const strategies = strategyStorage.getAll()
+    return strategies.find((s) => s.name.toLowerCase() === name.toLowerCase() && s.id !== selectedStrategy?.id)
+  }
+
+  const saveStrategy = () => {
+    try {
+      const name = strategyName.trim()
+      const duplicate = checkForDuplicate(name)
+      
+      if (duplicate && !selectedStrategy) {
+        // Show dialog to confirm overwrite or rename
+        setSaveDialogOpen(true)
+        showWarning(`A strategy named "${name}" already exists. You can overwrite it or choose a different name.`)
+        return
+      }
+
+      const strategy = {
+        id: selectedStrategy?.id || `strategy_${Date.now()}`,
+        name: name,
+        description: description.trim(),
+        code: code,
+      }
+
+      strategyStorage.save(strategy)
+      loadSavedStrategies()
+      setSaveDialogOpen(false)
+      updateInitialState()
+      setSelectedStrategy(strategy)
+      showSuccess('Strategy saved successfully!')
+    } catch (error) {
+      showError('Error saving strategy: ' + error.message)
     }
   }
 
@@ -97,7 +221,7 @@ export default function StrategyBuilder() {
 
     const validation = validateStrategyCode(code)
     if (!validation.valid) {
-      alert('Please fix validation errors before saving')
+      showWarning('Please fix validation errors before saving')
       return
     }
 
@@ -109,45 +233,6 @@ export default function StrategyBuilder() {
     saveStrategy()
   }
 
-  const saveStrategy = () => {
-    try {
-      const strategy = {
-        id: selectedStrategy?.id || `strategy_${Date.now()}`,
-        name: strategyName.trim(),
-        description: description.trim(),
-        code: code,
-      }
-
-      strategyStorage.save(strategy)
-      loadSavedStrategies()
-      setSaveDialogOpen(false)
-      setSelectedStrategy(null)
-      alert('Strategy saved successfully!')
-    } catch (error) {
-      alert('Error saving strategy: ' + error.message)
-    }
-  }
-
-  const handleLoad = (strategy) => {
-    setCode(strategy.code)
-    setStrategyName(strategy.name)
-    setDescription(strategy.description || '')
-    setSelectedStrategy(strategy)
-  }
-
-  const handleDelete = (id) => {
-    if (confirm('Are you sure you want to delete this strategy?')) {
-      strategyStorage.delete(id)
-      loadSavedStrategies()
-      if (selectedStrategy?.id === id) {
-        setCode('')
-        setStrategyName('')
-        setDescription('')
-        setSelectedStrategy(null)
-      }
-    }
-  }
-
   const handleUseInBacktest = () => {
     if (!code.trim()) {
       return
@@ -155,7 +240,7 @@ export default function StrategyBuilder() {
 
     const validation = validateStrategyCode(code)
     if (!validation.valid) {
-      alert('Please fix validation errors before using in backtest')
+      showWarning('Please fix validation errors before using in backtest')
       return
     }
 
@@ -179,6 +264,107 @@ export default function StrategyBuilder() {
       },
     })
   }
+
+
+  const handleLoad = (strategy) => {
+    if (hasUnsavedChanges) {
+      // Use a simple confirm for now - could be replaced with a dialog
+      if (!window.confirm('You have unsaved changes. Load this strategy anyway?')) {
+        return
+      }
+    }
+    setCode(strategy.code)
+    setStrategyName(strategy.name)
+    setDescription(strategy.description || '')
+    setSelectedStrategy(strategy)
+    updateInitialState()
+  }
+
+  const handleDeleteClick = (id) => {
+    setDeleteStrategyId(id)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = () => {
+    if (deleteStrategyId) {
+      strategyStorage.delete(deleteStrategyId)
+      loadSavedStrategies()
+      if (selectedStrategy?.id === deleteStrategyId) {
+        setCode('')
+        setStrategyName('')
+        setDescription('')
+        setSelectedStrategy(null)
+        updateInitialState()
+      }
+      showSuccess('Strategy deleted successfully')
+    }
+    setDeleteDialogOpen(false)
+    setDeleteStrategyId(null)
+  }
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        handleSave()
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault()
+        handleUseInBacktest()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleSave, handleUseInBacktest])
+
+  const handleExport = (strategyId = null) => {
+    try {
+      const jsonString = strategyStorage.export(strategyId ? [strategyId] : null)
+      const blob = new Blob([jsonString], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = strategyId 
+        ? `strategy_${selectedStrategy?.name || 'export'}.json`
+        : `strategies_export_${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      showSuccess(strategyId ? 'Strategy exported successfully' : 'All strategies exported successfully')
+    } catch (error) {
+      showError('Error exporting strategies: ' + error.message)
+    }
+    setExportMenuAnchor(null)
+  }
+
+  const handleImport = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = async (e) => {
+      const file = e.target.files[0]
+      if (!file) return
+
+      try {
+        const text = await file.text()
+        const result = strategyStorage.import(text, { overwrite: false, skipDuplicates: true })
+        loadSavedStrategies()
+        showSuccess(`Imported ${result.imported} strategy(ies). ${result.skipped > 0 ? `${result.skipped} duplicate(s) skipped.` : ''}`)
+        if (result.errors.length > 0) {
+          showWarning(`Some errors occurred: ${result.errors.join(', ')}`)
+        }
+      } catch (error) {
+        showError('Error importing strategies: ' + error.message)
+      }
+    }
+    input.click()
+  }
+
+  const errorCount = validationResult?.errors.length || 0
+  const warningCount = validationResult?.warnings.length || 0
 
   return (
     <Container maxWidth="xl">
@@ -209,70 +395,113 @@ export default function StrategyBuilder() {
 
             {tabValue === 1 && (
               <Box>
+                {loading && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                )}
                 <StrategyLibrary onSelectStrategy={handleLibraryStrategySelect} />
               </Box>
             )}
 
             {tabValue === 2 && (
               <Box>
-                {savedStrategies.length === 0 ? (
+                <Box sx={{ mb: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search strategies..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <IconButton
+                    onClick={(e) => setExportMenuAnchor(e.currentTarget)}
+                    title="Export/Import"
+                  >
+                    <MoreVertIcon />
+                  </IconButton>
+                </Box>
+
+                {filteredStrategies.length === 0 ? (
                   <Box sx={{ textAlign: 'center', py: 6 }}>
                     <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                      No saved strategies yet.
+                      {searchQuery ? 'No strategies match your search.' : 'No saved strategies yet.'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Create and save a strategy to see it here.
+                      {searchQuery ? 'Try a different search term.' : 'Create and save a strategy to see it here.'}
                     </Typography>
                   </Box>
                 ) : (
-                  <List sx={{ py: 0 }}>
-                    {savedStrategies.map((strategy) => (
-                      <ListItem 
-                        key={strategy.id} 
-                        divider
-                        sx={{
-                          py: 1.5,
-                          transition: 'background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                          '&:hover': {
-                            backgroundColor: 'action.hover',
-                          },
-                        }}
-                      >
-                        <ListItemText
-                          primary={
-                            <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
-                              {strategy.name}
-                            </Typography>
-                          }
-                          secondary={
-                            <Typography variant="body2" color="text.secondary">
-                              {strategy.description || 'No description'}
-                            </Typography>
-                          }
-                        />
-                        <ListItemSecondaryAction>
-                          <IconButton
-                            edge="end"
-                            onClick={() => handleLoad(strategy)}
-                            size="small"
-                            sx={{ mr: 0.5 }}
-                            title="Load strategy"
-                          >
-                            <CodeIcon />
-                          </IconButton>
-                          <IconButton
-                            edge="end"
-                            onClick={() => handleDelete(strategy.id)}
-                            size="small"
-                            color="error"
-                            title="Delete strategy"
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </ListItemSecondaryAction>
-                      </ListItem>
-                    ))}
-                  </List>
+                  <>
+                    {searchQuery && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {filteredStrategies.length} strategy(ies) found
+                      </Typography>
+                    )}
+                    <List sx={{ py: 0 }}>
+                      {filteredStrategies.map((strategy) => (
+                        <ListItem 
+                          key={strategy.id} 
+                          divider
+                          sx={{
+                            py: 1.5,
+                            transition: 'background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                            backgroundColor: selectedStrategy?.id === strategy.id ? 'action.selected' : 'transparent',
+                            '&:hover': {
+                              backgroundColor: 'action.hover',
+                            },
+                          }}
+                        >
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                                  {strategy.name}
+                                </Typography>
+                                {strategy.updatedAt && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    {new Date(strategy.updatedAt).toLocaleDateString()}
+                                  </Typography>
+                                )}
+                              </Box>
+                            }
+                            secondary={
+                              <Typography variant="body2" color="text.secondary">
+                                {strategy.description || 'No description'}
+                              </Typography>
+                            }
+                          />
+                          <ListItemSecondaryAction>
+                            <IconButton
+                              edge="end"
+                              onClick={() => handleLoad(strategy)}
+                              size="small"
+                              sx={{ mr: 0.5 }}
+                              title="Load strategy"
+                            >
+                              <CodeIcon />
+                            </IconButton>
+                            <IconButton
+                              edge="end"
+                              onClick={() => handleDeleteClick(strategy.id)}
+                              size="small"
+                              color="error"
+                              title="Delete strategy"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </ListItemSecondaryAction>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </>
                 )}
               </Box>
             )}
@@ -283,15 +512,31 @@ export default function StrategyBuilder() {
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 4, elevation: 1 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Strategy Code
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  Strategy Code
+                </Typography>
+                {errorCount > 0 && (
+                  <Chip 
+                    label={`${errorCount} error${errorCount > 1 ? 's' : ''}`}
+                    color="error"
+                    size="small"
+                  />
+                )}
+                {warningCount > 0 && errorCount === 0 && (
+                  <Chip 
+                    label={`${warningCount} warning${warningCount > 1 ? 's' : ''}`}
+                    color="warning"
+                    size="small"
+                  />
+                )}
+              </Box>
               <Box sx={{ display: 'flex', gap: 1.5 }}>
                 <Button
                   variant="outlined"
                   startIcon={<PlayArrowIcon />}
                   onClick={handleUseInBacktest}
-                  disabled={!code.trim()}
+                  disabled={!code.trim() || loading}
                   sx={{ fontSize: '0.9375rem', fontWeight: 500 }}
                 >
                   Use in Backtest
@@ -300,7 +545,7 @@ export default function StrategyBuilder() {
                   variant="contained"
                   startIcon={<SaveIcon />}
                   onClick={handleSave}
-                  disabled={!code.trim()}
+                  disabled={!code.trim() || loading}
                   sx={{ fontSize: '0.9375rem', fontWeight: 500 }}
                 >
                   Save
@@ -336,7 +581,7 @@ export default function StrategyBuilder() {
                 {validationResult.errors.length > 0 && (
                   <Alert severity="error" sx={{ mb: 1 }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                      Errors:
+                      Errors ({validationResult.errors.length}):
                     </Typography>
                     <Box component="ul" sx={{ margin: 0, paddingLeft: 2.5, mb: 0 }}>
                       {validationResult.errors.map((error, index) => (
@@ -350,7 +595,7 @@ export default function StrategyBuilder() {
                 {validationResult.warnings.length > 0 && (
                   <Alert severity="warning" sx={{ mb: validationResult.errors.length > 0 ? 1 : 0 }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                      Warnings:
+                      Warnings ({validationResult.warnings.length}):
                     </Typography>
                     <Box component="ul" sx={{ margin: 0, paddingLeft: 2.5, mb: 0 }}>
                       {validationResult.warnings.map((warning, index) => (
@@ -403,6 +648,45 @@ export default function StrategyBuilder() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete Strategy</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this strategy? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleDeleteConfirm} variant="contained" color="error">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Export Menu */}
+      <Menu
+        anchorEl={exportMenuAnchor}
+        open={Boolean(exportMenuAnchor)}
+        onClose={() => setExportMenuAnchor(null)}
+      >
+        <MenuItem onClick={() => handleExport(selectedStrategy?.id)} disabled={!selectedStrategy}>
+          <DownloadIcon sx={{ mr: 1 }} />
+          Export Current Strategy
+        </MenuItem>
+        <MenuItem onClick={() => handleExport(null)}>
+          <DownloadIcon sx={{ mr: 1 }} />
+          Export All Strategies
+        </MenuItem>
+        <MenuItem onClick={handleImport}>
+          <UploadIcon sx={{ mr: 1 }} />
+          Import Strategies
+        </MenuItem>
+      </Menu>
+
+      {/* Notifications */}
+      {NotificationComponent}
     </Container>
   )
 }

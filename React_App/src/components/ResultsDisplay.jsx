@@ -11,12 +11,15 @@ import {
   TextField,
 } from '@mui/material'
 import DownloadIcon from '@mui/icons-material/Download'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import { backtestService } from '../services/backtestService'
 import MetricsTable from './MetricsTable'
 import TradeHistory from './TradeHistory'
 import Chart from './Chart'
 import ExportDialog from './ExportDialog'
 import AIInsights from './AIInsights'
+import ReturnsAnalysis from './ReturnsAnalysis'
+import ChartLibrarySelector from './ChartLibrarySelector'
 import {
   exportMetricsToCSV,
   exportTradesToCSV,
@@ -39,6 +42,7 @@ export default function ResultsDisplay({
   const [error, setError] = useState(null)
   const [tabValue, setTabValue] = useState(0)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [aiInsightsOpen, setAiInsightsOpen] = useState(false)
   const [backtestName, setBacktestName] = useState('')
   const chartExportRef = useRef(null)
 
@@ -142,15 +146,26 @@ export default function ResultsDisplay({
             }}
           />
           {displayResults && (
-            <Button
-              variant="outlined"
-              startIcon={<DownloadIcon />}
-              onClick={() => setExportDialogOpen(true)}
-              size="large"
-              sx={{ fontSize: '0.9375rem', fontWeight: 500 }}
-            >
-              Export
-            </Button>
+            <>
+              <Button
+                variant="outlined"
+                startIcon={<AutoAwesomeIcon />}
+                onClick={() => setAiInsightsOpen(true)}
+                size="large"
+                sx={{ fontSize: '0.9375rem', fontWeight: 500 }}
+              >
+                AI Insights
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={() => setExportDialogOpen(true)}
+                size="large"
+                sx={{ fontSize: '0.9375rem', fontWeight: 500 }}
+              >
+                Export
+              </Button>
+            </>
           )}
           <Button
             variant="contained"
@@ -177,6 +192,16 @@ export default function ResultsDisplay({
         }
       />
 
+      {displayResults && (
+        <AIInsights 
+          results={displayResults} 
+          strategyName={strategy?.type || 'Unknown Strategy'} 
+          symbol={symbol || 'Unknown'}
+          open={aiInsightsOpen}
+          onClose={() => setAiInsightsOpen(false)}
+        />
+      )}
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
@@ -187,18 +212,15 @@ export default function ResultsDisplay({
         <>
           <MetricsTable results={displayResults} />
 
-          <AIInsights 
-            results={displayResults} 
-            strategyName={strategy?.type || 'Unknown Strategy'} 
-            symbol={symbol || 'Unknown'} 
-          />
-
           <Box sx={{ mt: 3 }}>
-            <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
-              <Tab label="Equity & Drawdown" />
-              <Tab label="Returns Analysis" />
-              <Tab label="Trade History" />
-            </Tabs>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
+                <Tab label="Equity & Drawdown" />
+                <Tab label="Returns Analysis" />
+                <Tab label="Trade History" />
+              </Tabs>
+              <ChartLibrarySelector />
+            </Box>
 
             {tabValue === 0 && (
               <Box sx={{ mt: 3 }}>
@@ -232,20 +254,7 @@ export default function ResultsDisplay({
 
             {tabValue === 1 && (
               <Box sx={{ mt: 3 }}>
-                <Box
-                  sx={{
-                    p: 6,
-                    textAlign: 'center',
-                    backgroundColor: 'action.hover',
-                    borderRadius: 3,
-                    border: '1px dashed',
-                    borderColor: 'divider',
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                    Returns analysis charts will be implemented here
-                  </Typography>
-                </Box>
+                <ReturnsAnalysis results={displayResults} />
               </Box>
             )}
 

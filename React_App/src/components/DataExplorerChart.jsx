@@ -1,7 +1,10 @@
-import { useMemo, memo, useCallback } from 'react'
+import { useMemo, memo, useCallback, useState, useEffect } from 'react'
 import { Box } from '@mui/material'
 import Plot from 'react-plotly.js'
 import { getOptimalChartType, prepareChartData, adaptiveSample } from '../utils/chartUtils'
+import { chartFactory } from '../charts'
+import { useChartLibrary } from '../charts/hooks/useChartLibrary'
+import { useThemeMode } from '../contexts/ThemeContext'
 
 // Simple client-side indicator calculations
 const calculateSMA = (prices, window) => {
@@ -1060,19 +1063,91 @@ const DataExplorerChart = memo(function DataExplorerChart({ data, chartType, ind
     },
   }), [])
 
+  const { mode } = useThemeMode()
+  const { library } = useChartLibrary()
+  const [chartKey, setChartKey] = useState(0)
+
+  // Listen for library changes
+  useEffect(() => {
+    const handleLibraryChange = () => {
+      setChartKey((prev) => prev + 1)
+    }
+    window.addEventListener('chartLibraryChanged', handleLibraryChange)
+    return () => window.removeEventListener('chartLibraryChanged', handleLibraryChange)
+  }, [])
+
+  useEffect(() => {
+    setChartKey((prev) => prev + 1)
+  }, [library])
+
+  // Prepare OHLC data for adapter
+  const ohlcData = useMemo(() => {
+    if (!sampledData || sampledData.length === 0) return null
+    return sampledData.map((d) => ({
+      date: d.Date,
+      open: d.Open,
+      high: d.High,
+      low: d.Low,
+      close: d.Close,
+      volume: d.Volume || 0,
+    }))
+  }, [sampledData])
+
+  // Prepare indicators data for adapter (SMA, EMA, Bollinger Bands only for TradingView)
+  const adapterIndicators = useMemo(() => {
+    if (!sampledData || sampledData.length === 0) return null
+    const closes = sampledData.map((d) => d.Close)
+    const dates = sampledData.map((d) => new Date(d.Date))
+    
+    const result = {}
+    if (indicators.sma) {
+      const smaValues = calculateSMA(closes, indicators.sma.window)
+      result.sma = { window: indicators.sma.window, values: smaValues }
+    }
+    if (indicators.ema) {
+      const emaValues = calculateEMA(closes, indicators.ema.window)
+      result.ema = { window: indicators.ema.window, values: emaValues }
+    }
+    if (indicators.bollingerBands) {
+      const bb = calculateBollingerBands(closes, indicators.bollingerBands.window, indicators.bollingerBands.numStd || 2.0)
+      result.bollingerBands = {
+        window: indicators.bollingerBands.window,
+        numStd: indicators.bollingerBands.numStd || 2.0,
+        upper: bb.upper,
+        middle: bb.middle,
+        lower: bb.lower,
+      }
+    }
+    return result
+  }, [sampledData, indicators])
+
   if (!plotData || !plotData.priceTraces || plotData.priceTraces.length === 0) {
     return <div>No data available for chart</div>
   }
 
+  // Use factory for main price chart if we have OHLC data
+  const shouldUseFactory = ohlcData && (chartType === 'candlestick' || chartType === 'ohlc' || chartType === 'heikinashi' || chartType === 'line' || chartType === 'area')
+
   return (
     <Box>
-      <Plot
-        data={plotData.priceTraces}
-        layout={priceLayout}
-        config={plotlyConfig}
-        style={{ width: '100%', height: '400px' }}
-        useResizeHandler={true}
-      />
+      {shouldUseFactory ? (
+        <Box key={chartKey}>
+          {chartFactory.renderCandlestick(ohlcData, chartType, {
+            mode,
+            title: 'Price Chart with Indicators',
+            height: 400,
+            indicators: adapterIndicators,
+          })}
+        </Box>
+      ) : (
+        <Plot
+          data={plotData.priceTraces}
+          layout={priceLayout}
+          config={plotlyConfig}
+          style={{ width: '100%', height: '400px' }}
+          useResizeHandler={true}
+        />
+      )}
       {rsiData && (
         <Box sx={{ mt: 2 }}>
           <Plot

@@ -25,6 +25,7 @@ import DataFetcher from '../components/DataFetcher'
 import DataExplorerChart from '../components/DataExplorerChart'
 import DataStatistics from '../components/DataStatistics'
 import IndicatorStatistics from '../components/IndicatorStatistics'
+import ChartLibrarySelector from '../components/ChartLibrarySelector'
 
 export default function DataExplorer() {
   const [data, setData] = useState(null)
@@ -895,14 +896,17 @@ export default function DataExplorer() {
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Price Chart
                   </Typography>
-                  <Button
-                    variant="outlined"
-                    startIcon={<DownloadIcon />}
-                    onClick={handleExportCSV}
-                    size="small"
-                  >
-                    Export CSV
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <ChartLibrarySelector />
+                    <Button
+                      variant="outlined"
+                      startIcon={<DownloadIcon />}
+                      onClick={handleExportCSV}
+                      size="small"
+                    >
+                      Export CSV
+                    </Button>
+                  </Box>
                 </Box>
                 <DataExplorerChart
                   data={filteredData || data}

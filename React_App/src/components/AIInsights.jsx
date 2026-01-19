@@ -1,32 +1,35 @@
 import { useState } from 'react'
 import {
   Box,
-  Paper,
   Typography,
   Button,
   CircularProgress,
   Alert,
-  Collapse,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
   Divider,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
 } from '@mui/material'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined'
+import CloseIcon from '@mui/icons-material/Close'
 import { backtestService } from '../services/backtestService'
+import { useThemeMode } from '../contexts/ThemeContext'
 
-export default function AIInsights({ results, strategyName, symbol }) {
-  const [expanded, setExpanded] = useState(false)
+export default function AIInsights({ results, strategyName, symbol, open, onClose }) {
   const [loading, setLoading] = useState(false)
   const [insights, setInsights] = useState(null)
   const [error, setError] = useState(null)
+  const { isDark } = useThemeMode()
 
   const handleGenerateInsights = async () => {
     if (!results) return
@@ -96,38 +99,37 @@ export default function AIInsights({ results, strategyName, symbol }) {
     }
   }
 
-  const handleToggle = () => {
-    setExpanded(!expanded)
-  }
-
   if (!results) return null
 
   return (
-    <Paper
-      sx={{
-        mt: 3,
-        overflow: 'hidden',
-        border: '1px solid',
-        borderColor: 'divider',
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          background: isDark
+            ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%)'
+            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid',
+          borderColor: 'divider',
+        },
       }}
-      elevation={0}
     >
-      <Box
+      <DialogTitle
         sx={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          p: 2,
-          cursor: 'pointer',
-          '&:hover': {
-            backgroundColor: 'action.hover',
-          },
+          pb: 1,
         }}
-        onClick={handleToggle}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <AutoAwesomeIcon color="primary" />
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
             AI Insights
           </Typography>
           <Chip
@@ -138,12 +140,13 @@ export default function AIInsights({ results, strategyName, symbol }) {
             sx={{ height: 20, fontSize: '0.7rem' }}
           />
         </Box>
-        {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-      </Box>
+        <IconButton onClick={onClose} size="small">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
 
-      <Collapse in={expanded}>
-        <Divider />
-        <Box sx={{ p: 3 }}>
+      <DialogContent>
+        <Box sx={{ py: 2 }}>
           {!insights && !loading && !error && (
             <Box sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -291,7 +294,10 @@ export default function AIInsights({ results, strategyName, symbol }) {
             </Box>
           )}
         </Box>
-      </Collapse>
-    </Paper>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+      </DialogActions>
+    </Dialog>
   )
 }

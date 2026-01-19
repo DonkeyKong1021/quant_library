@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Paper,
   Select,
@@ -12,6 +12,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Button,
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useQuery } from '@tanstack/react-query'
@@ -64,8 +65,8 @@ export default function StrategySelector({ onStrategySelected, initialCustomStra
     }
   }, [strategyParams, strategyType, initialParams])
 
-  // Notify parent when strategy changes
-  useEffect(() => {
+  // Handle strategy selection when button is clicked
+  const handleSelectStrategy = () => {
     if (!onStrategySelected) return
 
     if (strategyType === 'custom') {
@@ -84,7 +85,17 @@ export default function StrategySelector({ onStrategySelected, initialCustomStra
         params: params,
       })
     }
-  }, [strategyType, params, customStrategyId, savedStrategies, onStrategySelected])
+  }
+
+  // Check if strategy selection is valid
+  const isStrategyValid = () => {
+    if (strategyType === 'custom') {
+      return !!customStrategyId && savedStrategies.length > 0
+    } else {
+      // For non-custom strategies, need strategyParams to be loaded and params to be set
+      return strategyType && strategyParams && Object.keys(params).length > 0
+    }
+  }
 
   const handleParamChange = (paramName, value) => {
     setParams((prev) => ({
@@ -251,6 +262,21 @@ export default function StrategySelector({ onStrategySelected, initialCustomStra
             )}
           </>
         )}
+
+        {/* Select Button */}
+        <Grid item xs={12}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            <Button
+              variant="contained"
+              onClick={handleSelectStrategy}
+              disabled={!isStrategyValid()}
+              size="large"
+              sx={{ minWidth: 120 }}
+            >
+              Select Strategy
+            </Button>
+          </Box>
+        </Grid>
       </Grid>
     </Paper>
   )

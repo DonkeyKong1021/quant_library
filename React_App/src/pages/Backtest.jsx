@@ -22,6 +22,7 @@ export default function Backtest() {
   const [initialCustomStrategyId, setInitialCustomStrategyId] = useState(null)
   const [initialParams, setInitialParams] = useState(null)
   const [expandedAccordion, setExpandedAccordion] = useState('fetch-data')
+  const [userHasManuallyExpanded, setUserHasManuallyExpanded] = useState(false)
 
   // Check for custom strategy or optimized parameters from navigation state
   useEffect(() => {
@@ -43,27 +44,28 @@ export default function Backtest() {
   useEffect(() => {
     if (!data) {
       setExpandedAccordion('fetch-data')
+      setUserHasManuallyExpanded(false)
     }
   }, [data])
 
-  // Auto-expand select-strategy when data becomes available
+  // Auto-expand select-strategy when data becomes available (only if user hasn't manually expanded)
   useEffect(() => {
-    if (data && !strategy) {
+    if (data && !strategy && !userHasManuallyExpanded) {
       setExpandedAccordion('select-strategy')
     }
-  }, [data, strategy])
+  }, [data, strategy, userHasManuallyExpanded])
 
   useEffect(() => {
-    if (data && strategy && !config) {
+    if (data && strategy && !config && !userHasManuallyExpanded) {
       setExpandedAccordion('configure-backtest')
     }
-  }, [data, strategy, config])
+  }, [data, strategy, config, userHasManuallyExpanded])
 
   useEffect(() => {
-    if (data && strategy && config && !results) {
+    if (data && strategy && config && !results && !userHasManuallyExpanded) {
       setExpandedAccordion('run-results')
     }
-  }, [data, strategy, config, results])
+  }, [data, strategy, config, results, userHasManuallyExpanded])
 
   const handleDataFetched = (fetchedData, symbol) => {
     setData(fetchedData)
@@ -185,7 +187,10 @@ export default function Backtest() {
       <Box sx={{ position: 'relative' }}>
         <Accordion
           expanded={expandedAccordion === 'fetch-data'}
-          onChange={(event, isExpanded) => setExpandedAccordion(isExpanded ? 'fetch-data' : '')}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'fetch-data' : '')
+            setUserHasManuallyExpanded(true)
+          }}
           sx={{ mb: 2 }}
         >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -200,7 +205,10 @@ export default function Backtest() {
 
         <Accordion
           expanded={expandedAccordion === 'select-strategy'}
-          onChange={(event, isExpanded) => setExpandedAccordion(isExpanded ? 'select-strategy' : '')}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'select-strategy' : '')
+            setUserHasManuallyExpanded(true)
+          }}
           disabled={!data}
           sx={{ mb: 2 }}
         >
@@ -220,7 +228,10 @@ export default function Backtest() {
 
         <Accordion
           expanded={expandedAccordion === 'configure-backtest'}
-          onChange={(event, isExpanded) => setExpandedAccordion(isExpanded ? 'configure-backtest' : '')}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'configure-backtest' : '')
+            setUserHasManuallyExpanded(true)
+          }}
           disabled={!data || !strategy}
           sx={{ mb: 2 }}
         >
@@ -236,7 +247,10 @@ export default function Backtest() {
 
         <Accordion
           expanded={expandedAccordion === 'run-results'}
-          onChange={(event, isExpanded) => setExpandedAccordion(isExpanded ? 'run-results' : '')}
+          onChange={(event, isExpanded) => {
+            setExpandedAccordion(isExpanded ? 'run-results' : '')
+            setUserHasManuallyExpanded(true)
+          }}
           disabled={!data || !strategy || !config}
           sx={{ mb: 2 }}
         >

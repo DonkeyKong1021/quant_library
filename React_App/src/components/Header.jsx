@@ -20,6 +20,7 @@ import {
   ListItemText,
   Divider,
   Tooltip,
+  Badge,
 } from '@mui/material'
 import { motion, AnimatePresence } from 'framer-motion'
 import MenuIcon from '@mui/icons-material/Menu'
@@ -31,11 +32,16 @@ import DarkModeIcon from '@mui/icons-material/DarkMode'
 import PersonIcon from '@mui/icons-material/Person'
 import SettingsIcon from '@mui/icons-material/Settings'
 import LogoutIcon from '@mui/icons-material/Logout'
+import HistoryIcon from '@mui/icons-material/History'
+import TrendingDownIcon from '@mui/icons-material/TrendingDown'
+import NotificationsIcon from '@mui/icons-material/Notifications'
+import CircularProgress from '@mui/material/CircularProgress'
 import { navigationItems } from '../config/navigation'
 import QuickNav from './QuickNav'
 import ProfileModal from './ProfileModal'
 import SettingsModal from './SettingsModal'
 import { useThemeMode } from '../contexts/ThemeContext'
+import { backtestService } from '../services/backtestService'
 
 // Create menu items with icon components
 const menuItems = navigationItems.map((item) => ({
@@ -66,10 +72,13 @@ export default function Header() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const { mode, toggleTheme, isDark } = useThemeMode()
   const [anchorEl, setAnchorEl] = useState(null)
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState(null)
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
   const [quickNavOpen, setQuickNavOpen] = useState(false)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [settingsModalOpen, setSettingsModalOpen] = useState(false)
+  const [recentBacktests, setRecentBacktests] = useState([])
+  const [backtestsLoading, setBacktestsLoading] = useState(false)
 
   const handleUserMenuOpen = (event) => {
     setAnchorEl(event.currentTarget)
@@ -103,6 +112,45 @@ export default function Header() {
     // In a real app, this would clear auth state and redirect to login
     console.log('Logout clicked')
   }
+
+  const handleNotificationMenuOpen = (event) => {
+    setNotificationAnchorEl(event.currentTarget)
+  }
+
+  const handleNotificationMenuClose = () => {
+    setNotificationAnchorEl(null)
+  }
+
+  const handleNotificationClick = (resultId) => {
+    handleNotificationMenuClose()
+    navigate(`/backtest?resultId=${resultId}`)
+  }
+
+  // Fetch recent backtests
+  useEffect(() => {
+    const fetchRecentBacktests = async () => {
+      try {
+        setBacktestsLoading(true)
+        const response = await backtestService.listBacktestResults({
+          limit: 5,
+          offset: 0,
+          sort_by: 'created_at',
+          sort_order: 'DESC',
+        }).catch(() => ({ results: [] }))
+        setRecentBacktests(response.results || [])
+      } catch (err) {
+        console.error('Error fetching recent backtests:', err)
+        setRecentBacktests([])
+      } finally {
+        setBacktestsLoading(false)
+      }
+    }
+
+    fetchRecentBacktests()
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchRecentBacktests, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Keyboard shortcuts handler
   useEffect(() => {
@@ -347,6 +395,334 @@ export default function Header() {
               <SearchIcon />
             </IconButton>
           </Tooltip>
+
+          {/* Recent Activity / Notifications Button */}
+          <Tooltip title="Recent Activity" arrow>
+            <IconButton
+              onClick={handleNotificationMenuOpen}
+              sx={{
+                p: 1,
+                color: 'text.secondary',
+                position: 'relative',
+                '&:hover': {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'action.hover',
+                },
+              }}
+            >
+              <Badge 
+                badgeContent={recentBacktests.length > 0 ? recentBacktests.length : undefined} 
+                color="primary" 
+                max={9}
+                sx={{
+                  '& .MuiBadge-badge': {
+                    fontSize: '0.6875rem',
+                    fontWeight: 600,
+                    minWidth: 18,
+                    height: 18,
+                    padding: '0 4px',
+                  },
+                }}
+              >
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+          <Menu
+            anchorEl={notificationAnchorEl}
+            open={Boolean(notificationAnchorEl)}
+            onClose={handleNotificationMenuClose}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+            PaperProps={{
+              elevation: 8,
+              sx: {
+                minWidth: 360,
+                maxWidth: 420,
+                maxHeight: 520,
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                mt: 1.5,
+                background: isDark
+                  ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%)'
+                  : 'rgba(255, 255, 255, 0.98)',
+                backdropFilter: 'blur(12px)',
+                boxShadow: isDark
+                  ? '0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)'
+                  : '0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)',
+                overflow: 'hidden',
+                '& .MuiList-root': {
+                  padding: 0,
+                },
+              },
+            }}
+            MenuListProps={{
+              sx: {
+                py: 0.5,
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: 'transparent',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+                  borderRadius: '4px',
+                  '&:hover': {
+                    background: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
+                  },
+                },
+              },
+            }}
+          >
+            {/* Header */}
+            <Box 
+              sx={{ 
+                px: 2.5, 
+                py: 2, 
+                borderBottom: '1px solid', 
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                background: isDark
+                  ? 'rgba(255, 255, 255, 0.02)'
+                  : 'rgba(0, 0, 0, 0.02)',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, fontSize: '0.9375rem', color: 'text.primary' }}>
+                  Recent Activity
+                </Typography>
+                {recentBacktests.length > 0 && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                    {recentBacktests.length} {recentBacktests.length === 1 ? 'backtest' : 'backtests'}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+
+            {/* Content */}
+            {backtestsLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : recentBacktests.length === 0 ? (
+              <Box sx={{ px: 2.5, py: 4, textAlign: 'center' }}>
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 2,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mx: 'auto',
+                    mb: 2,
+                  }}
+                >
+                  <HistoryIcon sx={{ fontSize: 32, color: 'text.secondary', opacity: 0.5 }} />
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem', mb: 0.5 }}>
+                  No recent backtests
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                  Run a backtest to see activity here
+                </Typography>
+              </Box>
+            ) : (
+              recentBacktests.map((result) => {
+                const metrics = result.metrics || {}
+                const totalReturn = metrics.total_return || 0
+                const sharpeRatio = metrics.sharpe_ratio
+                const isPositive = totalReturn >= 0
+                const returnPercent = totalReturn * 100
+
+                const formatRelativeTime = (dateString) => {
+                  if (!dateString) return '—'
+                  try {
+                    const date = new Date(dateString)
+                    const now = new Date()
+                    const diffMs = now - date
+                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+                    
+                    if (diffDays === 0) return 'Today'
+                    if (diffDays === 1) return 'Yesterday'
+                    if (diffDays < 7) return `${diffDays}d ago`
+                    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
+                    if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`
+                    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+                  } catch {
+                    return dateString
+                  }
+                }
+
+                return (
+                  <MenuItem
+                    key={result.result_id}
+                    onClick={() => handleNotificationClick(result.result_id)}
+                    sx={{
+                      py: 0,
+                      px: 0,
+                      mx: 1,
+                      my: 0.5,
+                      borderRadius: 1.5,
+                      overflow: 'hidden',
+                      '&:hover': {
+                        backgroundColor: isDark
+                          ? 'rgba(255, 255, 255, 0.08)'
+                          : 'rgba(0, 0, 0, 0.04)',
+                      },
+                      '&:active': {
+                        backgroundColor: isDark
+                          ? 'rgba(255, 255, 255, 0.12)'
+                          : 'rgba(0, 0, 0, 0.08)',
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', width: '100%', gap: 1.5, p: 1.5 }}>
+                      <Box
+                        sx={{
+                          minWidth: 44,
+                          height: 44,
+                          borderRadius: 1.5,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: isPositive
+                            ? isDark
+                              ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.15) 100%)'
+                              : 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.08) 100%)'
+                            : isDark
+                            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.15) 100%)'
+                            : 'linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(220, 38, 38, 0.08) 100%)',
+                          border: '1px solid',
+                          borderColor: isPositive
+                            ? isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.2)'
+                            : isDark ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.2)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {isPositive ? (
+                          <TrendingUpIcon sx={{ fontSize: 22, color: 'success.main' }} />
+                        ) : (
+                          <TrendingDownIcon sx={{ fontSize: 22, color: 'error.main' }} />
+                        )}
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.9375rem', color: 'text.primary' }}>
+                            {result.symbol || 'N/A'}
+                          </Typography>
+                          <Box
+                            sx={{
+                              px: 1,
+                              py: 0.25,
+                              borderRadius: 1,
+                              backgroundColor: isPositive
+                                ? isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)'
+                                : isDark ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+                            }}
+                          >
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontWeight: 700,
+                                color: isPositive ? 'success.main' : 'error.main',
+                                fontSize: '0.8125rem',
+                              }}
+                            >
+                              {returnPercent >= 0 ? '+' : ''}{returnPercent.toFixed(1)}%
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Typography 
+                          variant="caption" 
+                          color="text.secondary" 
+                          sx={{ 
+                            fontSize: '0.8125rem', 
+                            display: 'block',
+                            mb: 0.75,
+                            fontWeight: 500,
+                          }}
+                        >
+                          {result.custom_name || result.strategy_name || 'Unknown Strategy'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                          {sharpeRatio !== null && sharpeRatio !== undefined && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                                Sharpe:
+                              </Typography>
+                              <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.primary' }}>
+                                {sharpeRatio.toFixed(2)}
+                              </Typography>
+                            </Box>
+                          )}
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary" 
+                            sx={{ 
+                              fontSize: '0.75rem',
+                              fontWeight: 500,
+                            }}
+                          >
+                            {formatRelativeTime(result.created_at)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  </MenuItem>
+                )
+              })
+            )}
+            {recentBacktests.length > 0 && (
+              <>
+                <Divider sx={{ my: 0.5, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }} />
+                <Box sx={{ px: 1.5, py: 1 }}>
+                  <MenuItem
+                    onClick={() => {
+                      handleNotificationMenuClose()
+                      navigate('/backtest-history')
+                    }}
+                    sx={{
+                      borderRadius: 1.5,
+                      py: 1.25,
+                      px: 2,
+                      justifyContent: 'center',
+                      backgroundColor: isDark
+                        ? 'rgba(59, 130, 246, 0.1)'
+                        : 'rgba(37, 99, 235, 0.08)',
+                      '&:hover': {
+                        backgroundColor: isDark
+                          ? 'rgba(59, 130, 246, 0.15)'
+                          : 'rgba(37, 99, 235, 0.12)',
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'primary.main',
+                        fontWeight: 600,
+                        fontSize: '0.875rem',
+                      }}
+                    >
+                      View All Backtests
+                    </Typography>
+                  </MenuItem>
+                </Box>
+              </>
+            )}
+          </Menu>
 
           <IconButton
             onClick={handleUserMenuOpen}

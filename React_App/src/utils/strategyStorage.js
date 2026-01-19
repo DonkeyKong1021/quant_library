@@ -84,4 +84,86 @@ export const strategyStorage = {
       return false
     }
   },
+
+  /**
+   * Export strategies to JSON
+   */
+  export(strategyIds = null) {
+    try {
+      const strategies = this.getAll()
+      const toExport = strategyIds
+        ? strategies.filter((s) => strategyIds.includes(s.id))
+        : strategies
+
+      return JSON.stringify(toExport, null, 2)
+    } catch (error) {
+      console.error('Error exporting strategies:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Import strategies from JSON
+   */
+  import(jsonString, options = { overwrite: false, skipDuplicates: true }) {
+    try {
+      const importedStrategies = JSON.parse(jsonString)
+      if (!Array.isArray(importedStrategies)) {
+        throw new Error('Imported data must be an array of strategies')
+      }
+
+      const existing = this.getAll()
+      const results = {
+        imported: 0,
+        skipped: 0,
+        errors: [],
+      }
+
+      importedStrategies.forEach((strategy) => {
+        try {
+          // Validate required fields
+          if (!strategy.name || !strategy.code) {
+            results.errors.push(`Strategy missing required fields: ${strategy.name || 'Unknown'}`)
+            return
+          }
+
+          const existingIndex = existing.findIndex((s) => s.id === strategy.id || s.name === strategy.name)
+
+          if (existingIndex >= 0) {
+            if (options.overwrite) {
+              // Update existing
+              strategy.id = existing[existingIndex].id
+              existing[existingIndex] = {
+                ...strategy,
+                updatedAt: new Date().toISOString(),
+              }
+              results.imported++
+            } else if (options.skipDuplicates) {
+              results.skipped++
+            } else {
+              // Create new with modified name
+              strategy.id = `strategy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+              strategy.createdAt = strategy.createdAt || new Date().toISOString()
+              existing.push(strategy)
+              results.imported++
+            }
+          } else {
+            // New strategy
+            strategy.id = strategy.id || `strategy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+            strategy.createdAt = strategy.createdAt || new Date().toISOString()
+            existing.push(strategy)
+            results.imported++
+          }
+        } catch (err) {
+          results.errors.push(`Error importing strategy: ${err.message}`)
+        }
+      })
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(existing))
+      return results
+    } catch (error) {
+      console.error('Error importing strategies:', error)
+      throw error
+    }
+  },
 }

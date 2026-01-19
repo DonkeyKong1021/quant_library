@@ -1,7 +1,10 @@
 import Editor from '@monaco-editor/react'
 import { Box } from '@mui/material'
+import { useThemeMode } from '../contexts/ThemeContext'
 
 export default function StrategyEditor({ code, onChange, height = '500px', readOnly = false }) {
+  const { isDark } = useThemeMode()
+
   const handleEditorChange = (value) => {
     if (onChange && value !== undefined) {
       onChange(value)
@@ -15,7 +18,7 @@ export default function StrategyEditor({ code, onChange, height = '500px', readO
         language="python"
         value={code || ''}
         onChange={handleEditorChange}
-        theme="vs-light"
+        theme={isDark ? 'vs-dark' : 'vs-light'}
         options={{
           readOnly,
           minimap: { enabled: false },
