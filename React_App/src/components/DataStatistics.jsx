@@ -1,46 +1,57 @@
 import { useMemo } from 'react'
-import { Grid, Paper, Typography, Table, TableBody, TableCell, TableContainer, TableRow } from '@mui/material'
+import { Grid, Paper, Typography, Table, TableBody, TableCell, TableContainer, TableRow, Box } from '@mui/material'
+import { useThemeMode } from '../contexts/ThemeContext'
 
 export default function DataStatistics({ data }) {
+  const { isDark } = useThemeMode()
+  
   const stats = useMemo(() => {
     if (!data || data.length === 0) return null
 
     const closes = data.map((d) => d.Close)
-    const opens = data.map((d) => d.Open)
-    const highs = data.map((d) => d.High)
-    const lows = data.map((d) => d.Low)
     const volumes = data.map((d) => d.Volume || 0)
 
-    // Price statistics
+    // Price statistics (single pass)
+    const priceSum = closes.reduce((a, b) => a + b, 0)
+    const sortedCloses = [...closes].sort((a, b) => a - b)
     const priceStats = {
       current: closes[closes.length - 1],
-      min: Math.min(...closes),
-      max: Math.max(...closes),
-      mean: closes.reduce((a, b) => a + b, 0) / closes.length,
-      median: [...closes].sort((a, b) => a - b)[Math.floor(closes.length / 2)],
+      min: sortedCloses[0],
+      max: sortedCloses[sortedCloses.length - 1],
+      mean: priceSum / closes.length,
+      median: sortedCloses[Math.floor(closes.length / 2)],
     }
 
-    // Calculate returns
+    // Calculate returns (single pass)
     const returns = []
     for (let i = 1; i < closes.length; i++) {
       returns.push((closes[i] - closes[i - 1]) / closes[i - 1])
     }
 
-    const returnStats = returns.length > 0 ? {
-      mean: returns.reduce((a, b) => a + b, 0) / returns.length,
-      std: Math.sqrt(returns.reduce((sum, r) => sum + Math.pow(r - (returns.reduce((a, b) => a + b, 0) / returns.length), 2), 0) / returns.length),
-      min: Math.min(...returns),
-      max: Math.max(...returns),
-      positive: returns.filter((r) => r > 0).length,
-      negative: returns.filter((r) => r < 0).length,
-    } : null
+    // Optimized return statistics (single pass)
+    let returnStats = null
+    if (returns.length > 0) {
+      const returnMean = returns.reduce((a, b) => a + b, 0) / returns.length
+      const variance = returns.reduce((sum, r) => sum + Math.pow(r - returnMean, 2), 0) / returns.length
+      const positiveCount = returns.filter((r) => r > 0).length
+      
+      returnStats = {
+        mean: returnMean,
+        std: Math.sqrt(variance),
+        min: Math.min(...returns),
+        max: Math.max(...returns),
+        positive: positiveCount,
+        negative: returns.length - positiveCount,
+      }
+    }
 
-    // Volume statistics
-    const volumeStats = volumes.some((v) => v > 0) ? {
-      mean: volumes.reduce((a, b) => a + b, 0) / volumes.length,
+    // Volume statistics (single pass)
+    const volumeSum = volumes.reduce((a, b) => a + b, 0)
+    const volumeStats = volumeSum > 0 ? {
+      mean: volumeSum / volumes.length,
       min: Math.min(...volumes),
       max: Math.max(...volumes),
-      total: volumes.reduce((a, b) => a + b, 0),
+      total: volumeSum,
     } : null
 
     // Performance metrics
@@ -49,7 +60,7 @@ export default function DataStatistics({ data }) {
     const volatility = returnStats ? returnStats.std * Math.sqrt(252) * 100 : 0
     const sharpe = returnStats && returnStats.std > 0 ? (returnStats.mean / returnStats.std) * Math.sqrt(252) : 0
 
-    // Drawdown
+    // Drawdown (single pass)
     let maxDrawdown = 0
     let peak = closes[0]
     for (let i = 1; i < closes.length; i++) {
@@ -58,6 +69,12 @@ export default function DataStatistics({ data }) {
       if (drawdown < maxDrawdown) maxDrawdown = drawdown
     }
     maxDrawdown *= 100
+
+    // Date range
+    const dateRange = data.length > 0 ? {
+      start: new Date(data[0].Date),
+      end: new Date(data[data.length - 1].Date),
+    } : null
 
     return {
       priceStats,
@@ -69,106 +86,99 @@ export default function DataStatistics({ data }) {
       sharpe,
       maxDrawdown,
       dataPoints: data.length,
-      dateRange: data.length > 0 ? {
-        start: new Date(data[0].Date),
-        end: new Date(data[data.length - 1].Date),
-      } : null,
+      dateRange,
+      dateRangeDays: dateRange ? Math.floor((dateRange.end - dateRange.start) / (1000 * 60 * 60 * 24)) : 0,
     }
   }, [data])
 
   if (!stats) {
-    return <Typography>No statistics available</Typography>
+    return (
+      <Box sx={{ py: 4, textAlign: 'center' }}>
+        <Typography color="text.secondary">No statistics available</Typography>
+      </Box>
+    )
   }
 
-  const dateRangeDays = stats.dateRange
-    ? Math.floor((stats.dateRange.end - stats.dateRange.start) / (1000 * 60 * 60 * 24))
-    : 0
-
   return (
-    <Grid container spacing={3}>
+    <Grid container spacing={2}>
       {/* Quick Overview */}
       <Grid item xs={12}>
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+        <Paper 
+          sx={{ 
+            p: 2.5, 
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+            backgroundImage: 'none',
+          }}
+          elevation={0}
+        >
+          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 2.5 }}>
             Quick Overview
           </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="caption" color="text.secondary">
-                Current Price
-              </Typography>
-              <Typography variant="h6">${stats.priceStats.current.toFixed(2)}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Total Change: {stats.totalReturn >= 0 ? '+' : ''}{stats.totalReturn.toFixed(2)}%
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="caption" color="text.secondary">
-                52W High
-              </Typography>
-              <Typography variant="h6">${stats.priceStats.max.toFixed(2)}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                52W Low: ${stats.priceStats.min.toFixed(2)}
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="caption" color="text.secondary">
-                Volatility (Annual)
-              </Typography>
-              <Typography variant="h6">{stats.volatility.toFixed(2)}%</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Annual Return: {stats.annualReturn.toFixed(2)}%
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="caption" color="text.secondary">
-                Data Points
-              </Typography>
-              <Typography variant="h6">{stats.dataPoints.toLocaleString()}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Time Span: {dateRangeDays} days
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="caption" color="text.secondary">
-                Sharpe Ratio
-              </Typography>
-              <Typography variant="h6">{stats.sharpe.toFixed(2)}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Max Drawdown: {stats.maxDrawdown.toFixed(2)}%
-              </Typography>
-            </Grid>
+          <Grid container spacing={3}>
+            {[
+              { label: 'Current Price', value: `$${stats.priceStats.current.toFixed(2)}`, sublabel: `Total Change: ${stats.totalReturn >= 0 ? '+' : ''}${stats.totalReturn.toFixed(2)}%`, highlight: true },
+              { label: '52W High', value: `$${stats.priceStats.max.toFixed(2)}`, sublabel: `52W Low: $${stats.priceStats.min.toFixed(2)}` },
+              { label: 'Volatility (Annual)', value: `${stats.volatility.toFixed(2)}%`, sublabel: `Annual Return: ${stats.annualReturn.toFixed(2)}%` },
+              { label: 'Data Points', value: stats.dataPoints.toLocaleString(), sublabel: `Time Span: ${stats.dateRangeDays} days` },
+              { label: 'Sharpe Ratio', value: stats.sharpe.toFixed(2), sublabel: `Max Drawdown: ${stats.maxDrawdown.toFixed(2)}%` },
+            ].map((item, index) => (
+              <Grid item xs={12} sm={6} md={2.4} key={index}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', display: 'block', mb: 0.5 }}>
+                    {item.label}
+                  </Typography>
+                  <Typography 
+                    variant={item.highlight ? 'h6' : 'h6'} 
+                    sx={{ 
+                      fontWeight: item.highlight ? 700 : 600,
+                      color: item.highlight ? 'primary.main' : 'text.primary',
+                      mb: 0.5,
+                    }}
+                  >
+                    {item.value}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                    {item.sublabel}
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
           </Grid>
         </Paper>
       </Grid>
 
-      {/* Price Statistics */}
+      {/* Detailed Statistics */}
       <Grid item xs={12} md={4}>
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+        <Paper 
+          sx={{ 
+            p: 2.5, 
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+            backgroundImage: 'none',
+            height: '100%',
+          }}
+          elevation={0}
+        >
+          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
             Price Statistics
           </Typography>
           <TableContainer>
-            <Table size="small">
+            <Table size="small" sx={{ '& .MuiTableCell-root': { borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`, py: 1.25 } }}>
               <TableBody>
-                <TableRow>
-                  <TableCell>Current Price</TableCell>
-                  <TableCell align="right">${stats.priceStats.current.toFixed(2)}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Price Range</TableCell>
-                  <TableCell align="right">
-                    ${stats.priceStats.min.toFixed(2)} - ${stats.priceStats.max.toFixed(2)}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Average Price</TableCell>
-                  <TableCell align="right">${stats.priceStats.mean.toFixed(2)}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Median Price</TableCell>
-                  <TableCell align="right">${stats.priceStats.median.toFixed(2)}</TableCell>
-                </TableRow>
+                {[
+                  { label: 'Current Price', value: `$${stats.priceStats.current.toFixed(2)}` },
+                  { label: 'Price Range', value: `$${stats.priceStats.min.toFixed(2)} - $${stats.priceStats.max.toFixed(2)}` },
+                  { label: 'Average Price', value: `$${stats.priceStats.mean.toFixed(2)}` },
+                  { label: 'Median Price', value: `$${stats.priceStats.median.toFixed(2)}` },
+                ].map((row, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell sx={{ fontWeight: 500 }}>{row.label}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>{row.value}</TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -178,41 +188,42 @@ export default function DataStatistics({ data }) {
       {/* Returns Statistics */}
       {stats.returnStats && (
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+          <Paper 
+            sx={{ 
+              p: 2.5, 
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+              backgroundImage: 'none',
+              height: '100%',
+            }}
+            elevation={0}
+          >
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
               Returns Statistics
             </Typography>
             <TableContainer>
-              <Table size="small">
+              <Table size="small" sx={{ '& .MuiTableCell-root': { borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`, py: 1.25 } }}>
                 <TableBody>
-                  <TableRow>
-                    <TableCell>Mean</TableCell>
-                    <TableCell align="right">{(stats.returnStats.mean * 100).toFixed(4)}%</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Std Dev</TableCell>
-                    <TableCell align="right">{(stats.returnStats.std * 100).toFixed(4)}%</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Min</TableCell>
-                    <TableCell align="right">{(stats.returnStats.min * 100).toFixed(2)}%</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Max</TableCell>
-                    <TableCell align="right">{(stats.returnStats.max * 100).toFixed(2)}%</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Positive Days</TableCell>
-                    <TableCell align="right">
-                      {stats.returnStats.positive} ({stats.returnStats.positive + stats.returnStats.negative > 0 ? ((stats.returnStats.positive / (stats.returnStats.positive + stats.returnStats.negative)) * 100).toFixed(1) : 0}%)
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Negative Days</TableCell>
-                    <TableCell align="right">
-                      {stats.returnStats.negative} ({stats.returnStats.positive + stats.returnStats.negative > 0 ? ((stats.returnStats.negative / (stats.returnStats.positive + stats.returnStats.negative)) * 100).toFixed(1) : 0}%)
-                    </TableCell>
-                  </TableRow>
+                  {[
+                    { label: 'Mean', value: `${(stats.returnStats.mean * 100).toFixed(4)}%` },
+                    { label: 'Std Dev', value: `${(stats.returnStats.std * 100).toFixed(4)}%` },
+                    { label: 'Min', value: `${(stats.returnStats.min * 100).toFixed(2)}%` },
+                    { label: 'Max', value: `${(stats.returnStats.max * 100).toFixed(2)}%` },
+                    { 
+                      label: 'Positive Days', 
+                      value: `${stats.returnStats.positive} (${((stats.returnStats.positive / (stats.returnStats.positive + stats.returnStats.negative)) * 100).toFixed(1)}%)` 
+                    },
+                    { 
+                      label: 'Negative Days', 
+                      value: `${stats.returnStats.negative} (${((stats.returnStats.negative / (stats.returnStats.positive + stats.returnStats.negative)) * 100).toFixed(1)}%)` 
+                    },
+                  ].map((row, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell sx={{ fontWeight: 500 }}>{row.label}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600 }}>{row.value}</TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -223,29 +234,34 @@ export default function DataStatistics({ data }) {
       {/* Volume Statistics */}
       {stats.volumeStats && (
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+          <Paper 
+            sx={{ 
+              p: 2.5, 
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+              backgroundImage: 'none',
+              height: '100%',
+            }}
+            elevation={0}
+          >
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
               Volume Statistics
             </Typography>
             <TableContainer>
-              <Table size="small">
+              <Table size="small" sx={{ '& .MuiTableCell-root': { borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`, py: 1.25 } }}>
                 <TableBody>
-                  <TableRow>
-                    <TableCell>Average Volume</TableCell>
-                    <TableCell align="right">{Math.round(stats.volumeStats.mean).toLocaleString()}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Max Volume</TableCell>
-                    <TableCell align="right">{Math.round(stats.volumeStats.max).toLocaleString()}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Min Volume</TableCell>
-                    <TableCell align="right">{Math.round(stats.volumeStats.min).toLocaleString()}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Total Volume</TableCell>
-                    <TableCell align="right">{Math.round(stats.volumeStats.total).toLocaleString()}</TableCell>
-                  </TableRow>
+                  {[
+                    { label: 'Average Volume', value: Math.round(stats.volumeStats.mean).toLocaleString() },
+                    { label: 'Max Volume', value: Math.round(stats.volumeStats.max).toLocaleString() },
+                    { label: 'Min Volume', value: Math.round(stats.volumeStats.min).toLocaleString() },
+                    { label: 'Total Volume', value: Math.round(stats.volumeStats.total).toLocaleString() },
+                  ].map((row, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell sx={{ fontWeight: 500 }}>{row.label}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600 }}>{row.value}</TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </TableContainer>

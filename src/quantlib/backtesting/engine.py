@@ -374,15 +374,35 @@ class BacktestEngine:
         equity_df.set_index('timestamp', inplace=True)
         
         # Calculate returns
+        # Ensure equity column exists
+        if 'equity' not in equity_df.columns:
+            raise ValueError("Equity curve data is missing 'equity' column")
+        
         equity_series = equity_df['equity']
+        
+        # Ensure it's a Series (should always be, but defensive check)
+        if not isinstance(equity_series, pd.Series):
+            # This should never happen, but handle edge case
+            equity_series = pd.Series([float(equity_series)], index=equity_df.index)
+        
+        if len(equity_series) == 0:
+            return {}
+        
         returns = equity_series.pct_change().dropna()
         
         # Calculate metrics
-        total_return = (equity_series.iloc[-1] / equity_series.iloc[0]) - 1
-        cumulative_returns = (1 + returns).cumprod() - 1
+        if len(equity_series) > 1:
+            total_return = (equity_series.iloc[-1] / equity_series.iloc[0]) - 1
+            final_equity = float(equity_series.iloc[-1])
+        else:
+            # Single data point case
+            total_return = 0.0
+            final_equity = float(equity_series.iloc[0])
+        
+        cumulative_returns = (1 + returns).cumprod() - 1 if len(returns) > 0 else pd.Series(dtype=float)
         
         # Calculate total commission from transactions
-        total_commission = sum(t['commission'] for t in self.trades)
+        total_commission = sum(t.get('commission', 0) for t in self.trades)
         
         results = {
             'equity_curve': equity_series,
@@ -390,9 +410,9 @@ class BacktestEngine:
             'cumulative_returns': cumulative_returns,
             'total_return': total_return,
             'trades': pd.DataFrame(self.trades) if self.trades else pd.DataFrame(),
-            'positions_history': equity_df[['cash', 'positions']],
+            'positions_history': equity_df[['cash', 'positions']] if all(col in equity_df.columns for col in ['cash', 'positions']) else pd.DataFrame(),
             'initial_capital': self.initial_capital,
-            'final_equity': equity_series.iloc[-1],
+            'final_equity': final_equity,
             'total_commission': total_commission,
             'num_trades': len(self.trades),
             'portfolio': self.portfolio  # Include portfolio for advanced analytics

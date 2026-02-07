@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import {
-  Paper,
   TextField,
   Box,
-  Typography,
   Grid,
   Select,
   MenuItem,
@@ -11,8 +9,8 @@ import {
   InputLabel,
   FormControlLabel,
   Checkbox,
-  Divider,
   Button,
+  InputAdornment,
 } from '@mui/material'
 export default function BacktestConfig({ onConfigChanged }) {
   const [initialCapital, setInitialCapital] = useState(100000)
@@ -38,58 +36,77 @@ export default function BacktestConfig({ onConfigChanged }) {
   }
 
   return (
-    <Paper sx={{ p: 4, elevation: 1 }}>
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Financial Parameters */}
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField
             label="Initial Capital"
             type="number"
             value={initialCapital}
             onChange={(e) => setInitialCapital(parseFloat(e.target.value) || 0)}
             fullWidth
+            size="small"
             inputProps={{ min: 1000, max: 10000000, step: 10000 }}
             InputProps={{
-              startAdornment: '$',
+              startAdornment: <InputAdornment position="start">$</InputAdornment>,
             }}
+            helperText="Range: $1,000 - $10,000,000"
           />
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField
             label="Commission"
             type="number"
             value={commission}
             onChange={(e) => setCommission(parseFloat(e.target.value) || 0)}
             fullWidth
+            size="small"
             inputProps={{ min: 0, max: 100, step: 0.1 }}
             InputProps={{
-              startAdornment: commissionType === 'fixed' ? '$' : undefined,
-              endAdornment: commissionType === 'percentage' ? '%' : undefined,
+              startAdornment: commissionType === 'fixed' ? (
+                <InputAdornment position="start">$</InputAdornment>
+              ) : undefined,
+              endAdornment: commissionType === 'percentage' ? (
+                <InputAdornment position="end">%</InputAdornment>
+              ) : undefined,
             }}
+            helperText={commissionType === 'fixed' ? 'Range: $0 - $100' : 'Range: 0% - 100%'}
           />
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <TextField
             label="Slippage"
             type="number"
             value={slippage * 100}
             onChange={(e) => setSlippage((parseFloat(e.target.value) || 0) / 100)}
             fullWidth
+            size="small"
             inputProps={{ min: 0, max: 5, step: 0.1 }}
             InputProps={{
-              endAdornment: '%',
+              endAdornment: <InputAdornment position="end">%</InputAdornment>,
             }}
+            helperText="Range: 0% - 5%"
           />
         </Grid>
+      </Grid>
 
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth>
+      {/* Order Configuration */}
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6}>
+          <FormControl fullWidth size="small">
             <InputLabel>Commission Type</InputLabel>
             <Select
               value={commissionType}
               label="Commission Type"
               onChange={(e) => setCommissionType(e.target.value)}
+              sx={{
+                '& .MuiSelect-select': {
+                  py: 1.5,
+                },
+              }}
             >
               <MenuItem value="fixed">Fixed ($ per trade)</MenuItem>
               <MenuItem value="percentage">Percentage (% of value)</MenuItem>
@@ -97,13 +114,18 @@ export default function BacktestConfig({ onConfigChanged }) {
           </FormControl>
         </Grid>
 
-        <Grid item xs={12} md={6}>
-          <FormControl fullWidth>
+        <Grid item xs={12} sm={6}>
+          <FormControl fullWidth size="small">
             <InputLabel>Default Order Type</InputLabel>
             <Select
               value={defaultOrderType}
               label="Default Order Type"
               onChange={(e) => setDefaultOrderType(e.target.value)}
+              sx={{
+                '& .MuiSelect-select': {
+                  py: 1.5,
+                },
+              }}
             >
               <MenuItem value="MARKET">Market Order</MenuItem>
               <MenuItem value="LIMIT">Limit Order</MenuItem>
@@ -113,47 +135,50 @@ export default function BacktestConfig({ onConfigChanged }) {
             </Select>
           </FormControl>
         </Grid>
-
-        <Grid item xs={12}>
-          <Divider sx={{ my: 1 }} />
-        </Grid>
-
-        <Grid item xs={12}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={useBenchmark}
-                onChange={(e) => setUseBenchmark(e.target.checked)}
-              />
-            }
-            label="Enable Benchmark Comparison"
-          />
-          {useBenchmark && (
-            <TextField
-              label="Benchmark Symbol"
-              value={benchmarkSymbol}
-              onChange={(e) => setBenchmarkSymbol(e.target.value.toUpperCase())}
-              fullWidth
-              sx={{ mt: 2, maxWidth: 300 }}
-              placeholder="SPY"
-            />
-          )}
-        </Grid>
-
-        {/* Config Button */}
-        <Grid item xs={12}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-            <Button
-              variant="contained"
-              onClick={handleConfig}
-              size="large"
-              sx={{ minWidth: 120 }}
-            >
-              Config
-            </Button>
-          </Box>
-        </Grid>
       </Grid>
-    </Paper>
+
+      {/* Benchmark Configuration */}
+      <Box>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={useBenchmark}
+              onChange={(e) => setUseBenchmark(e.target.checked)}
+            />
+          }
+          label="Enable Benchmark Comparison"
+          sx={{ mb: useBenchmark ? 2 : 0 }}
+        />
+        {useBenchmark && (
+          <TextField
+            label="Benchmark Symbol"
+            value={benchmarkSymbol}
+            onChange={(e) => setBenchmarkSymbol(e.target.value.toUpperCase())}
+            size="small"
+            sx={{ maxWidth: 300 }}
+            placeholder="SPY"
+            helperText="Symbol for benchmark comparison (e.g., SPY, QQQ)"
+          />
+        )}
+      </Box>
+
+      {/* Config Button */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 1 }}>
+        <Button
+          variant="contained"
+          onClick={handleConfig}
+          size="medium"
+          sx={{ 
+            minWidth: 120,
+            px: 3,
+            py: 1,
+            fontSize: '0.9375rem',
+            fontWeight: 500,
+          }}
+        >
+          Config
+        </Button>
+      </Box>
+    </Box>
   )
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Container, Typography, Box, Paper, Button, useTheme, LinearProgress, Accordion, AccordionSummary, AccordionDetails, Grid } from '@mui/material'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Container, Typography, Box, LinearProgress, Accordion, AccordionSummary, AccordionDetails, Grid } from '@mui/material'
+import { motion } from 'framer-motion'
 import { useLocation } from 'react-router-dom'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import DataFetcher from '../components/DataFetcher'
@@ -13,7 +13,6 @@ import { useThemeMode } from '../contexts/ThemeContext'
 
 export default function Backtest() {
   const location = useLocation()
-  const theme = useTheme()
   const { isDark } = useThemeMode()
   const [data, setData] = useState(null)
   const [selectedSymbol, setSelectedSymbol] = useState(null)
@@ -137,52 +136,36 @@ export default function Backtest() {
         </Box>
       </motion.div>
 
-      {/* Progress indicator at top */}
-      <Paper
-        sx={{
-          p: 2.5,
-          mb: 4,
-          background: isDark
-            ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.4) 100%)'
-            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.7) 100%)',
-          border: '1px solid',
-          borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-          borderRadius: 3,
-        }}
-        elevation={0}
-      >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+      {/* Minimal progress indicator */}
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+          <LinearProgress
+            variant="determinate"
+            value={getProgress()}
+            sx={{
+              flex: 1,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+              '& .MuiLinearProgress-bar': {
+                borderRadius: 2,
+                backgroundColor: 'primary.main',
+              },
+            }}
+          />
           <Typography
             variant="caption"
-            color="text.secondary"
-            sx={{ fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-          >
-            Progress
-          </Typography>
-          <Typography
-            variant="caption"
-            color="primary.main"
-            sx={{ fontWeight: 700, fontSize: '0.8125rem' }}
+            sx={{
+              fontWeight: 600,
+              fontSize: '0.75rem',
+              color: 'primary.main',
+              minWidth: 36,
+            }}
           >
             {Math.round(getProgress())}%
           </Typography>
         </Box>
-        <LinearProgress
-          variant="determinate"
-          value={getProgress()}
-          sx={{
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-            overflow: 'hidden',
-            '& .MuiLinearProgress-bar': {
-              borderRadius: 4,
-              background: 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)',
-              boxShadow: '0 0 8px rgba(37, 99, 235, 0.4)',
-            },
-          }}
-        />
-      </Paper>
+      </Box>
 
       {/* Side-by-side Layout: Stepper and Content */}
       <Grid container spacing={3}>
@@ -207,92 +190,184 @@ export default function Backtest() {
 
         {/* Main Content - Right Side */}
         <Grid item xs={12} md={9}>
-          <Box sx={{ position: 'relative' }}>
-        <Accordion
-          expanded={expandedAccordion === 'fetch-data'}
-          onChange={(event, isExpanded) => {
-            setExpandedAccordion(isExpanded ? 'fetch-data' : '')
-            setUserHasManuallyExpanded(true)
-          }}
-          sx={{ mb: 2 }}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              1. Fetch Market Data
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <DataFetcher onDataFetched={handleDataFetched} />
-          </AccordionDetails>
-        </Accordion>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {/* Step 1: Fetch Market Data */}
+            <Accordion
+              expanded={expandedAccordion === 'fetch-data'}
+              onChange={(event, isExpanded) => {
+                setExpandedAccordion(isExpanded ? 'fetch-data' : '')
+                setUserHasManuallyExpanded(true)
+              }}
+              sx={{
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                '&:before': { display: 'none' },
+                boxShadow: 'none',
+                '&.Mui-expanded': {
+                  margin: 0,
+                  borderColor: 'primary.main',
+                  borderWidth: 1,
+                },
+              }}
+              disableGutters
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ fontSize: 20 }} />}
+                sx={{
+                  minHeight: 52,
+                  px: 2.5,
+                  '& .MuiAccordionSummary-content': { my: 1.5 },
+                }}
+              >
+                <Typography sx={{ fontWeight: 500, fontSize: '0.9375rem' }}>
+                  1. Fetch Market Data
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: 2.5, pb: 2.5 }}>
+                <DataFetcher onDataFetched={handleDataFetched} />
+              </AccordionDetails>
+            </Accordion>
 
-        <Accordion
-          expanded={expandedAccordion === 'select-strategy'}
-          onChange={(event, isExpanded) => {
-            setExpandedAccordion(isExpanded ? 'select-strategy' : '')
-            setUserHasManuallyExpanded(true)
-          }}
-          disabled={!data}
-          sx={{ mb: 2 }}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              2. Select Strategy
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <StrategySelector
-              onStrategySelected={handleStrategySelected}
-              initialCustomStrategyId={initialCustomStrategyId}
-              initialParams={initialParams}
-            />
-          </AccordionDetails>
-        </Accordion>
+            {/* Step 2: Select Strategy */}
+            <Accordion
+              expanded={expandedAccordion === 'select-strategy'}
+              onChange={(event, isExpanded) => {
+                setExpandedAccordion(isExpanded ? 'select-strategy' : '')
+                setUserHasManuallyExpanded(true)
+              }}
+              disabled={!data}
+              sx={{
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                '&:before': { display: 'none' },
+                boxShadow: 'none',
+                '&.Mui-expanded': {
+                  margin: 0,
+                  borderColor: 'primary.main',
+                  borderWidth: 1,
+                },
+                '&.Mui-disabled': {
+                  backgroundColor: 'transparent',
+                  opacity: 0.5,
+                },
+              }}
+              disableGutters
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ fontSize: 20 }} />}
+                sx={{
+                  minHeight: 52,
+                  px: 2.5,
+                  '& .MuiAccordionSummary-content': { my: 1.5 },
+                }}
+              >
+                <Typography sx={{ fontWeight: 500, fontSize: '0.9375rem' }}>
+                  2. Select Strategy
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: 2.5, pb: 2.5 }}>
+                <StrategySelector
+                  onStrategySelected={handleStrategySelected}
+                  initialCustomStrategyId={initialCustomStrategyId}
+                  initialParams={initialParams}
+                />
+              </AccordionDetails>
+            </Accordion>
 
-        <Accordion
-          expanded={expandedAccordion === 'configure-backtest'}
-          onChange={(event, isExpanded) => {
-            setExpandedAccordion(isExpanded ? 'configure-backtest' : '')
-            setUserHasManuallyExpanded(true)
-          }}
-          disabled={!data || !strategy}
-          sx={{ mb: 2 }}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              3. Configure Backtest
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <BacktestConfig onConfigChanged={handleConfigChanged} />
-          </AccordionDetails>
-        </Accordion>
+            {/* Step 3: Configure Backtest */}
+            <Accordion
+              expanded={expandedAccordion === 'configure-backtest'}
+              onChange={(event, isExpanded) => {
+                setExpandedAccordion(isExpanded ? 'configure-backtest' : '')
+                setUserHasManuallyExpanded(true)
+              }}
+              disabled={!data || !strategy}
+              sx={{
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                '&:before': { display: 'none' },
+                boxShadow: 'none',
+                '&.Mui-expanded': {
+                  margin: 0,
+                  borderColor: 'primary.main',
+                  borderWidth: 1,
+                },
+                '&.Mui-disabled': {
+                  backgroundColor: 'transparent',
+                  opacity: 0.5,
+                },
+              }}
+              disableGutters
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ fontSize: 20 }} />}
+                sx={{
+                  minHeight: 52,
+                  px: 2.5,
+                  '& .MuiAccordionSummary-content': { my: 1.5 },
+                }}
+              >
+                <Typography sx={{ fontWeight: 500, fontSize: '0.9375rem' }}>
+                  3. Configure Backtest
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: 2.5, pb: 2.5 }}>
+                <BacktestConfig onConfigChanged={handleConfigChanged} />
+              </AccordionDetails>
+            </Accordion>
 
-        <Accordion
-          expanded={expandedAccordion === 'run-results'}
-          onChange={(event, isExpanded) => {
-            setExpandedAccordion(isExpanded ? 'run-results' : '')
-            setUserHasManuallyExpanded(true)
-          }}
-          disabled={!data || !strategy || !config}
-          sx={{ mb: 2 }}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              4. Run & Results
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <ResultsDisplay
-              data={data}
-              symbol={selectedSymbol}
-              strategy={strategy}
-              config={config}
-              onBacktestComplete={handleBacktestComplete}
-              results={results}
-            />
-          </AccordionDetails>
-        </Accordion>
+            {/* Step 4: Run & Results */}
+            <Accordion
+              expanded={expandedAccordion === 'run-results'}
+              onChange={(event, isExpanded) => {
+                setExpandedAccordion(isExpanded ? 'run-results' : '')
+                setUserHasManuallyExpanded(true)
+              }}
+              disabled={!data || !strategy || !config}
+              sx={{
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                '&:before': { display: 'none' },
+                boxShadow: 'none',
+                '&.Mui-expanded': {
+                  margin: 0,
+                  borderColor: 'primary.main',
+                  borderWidth: 1,
+                },
+                '&.Mui-disabled': {
+                  backgroundColor: 'transparent',
+                  opacity: 0.5,
+                },
+              }}
+              disableGutters
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ fontSize: 20 }} />}
+                sx={{
+                  minHeight: 52,
+                  px: 2.5,
+                  '& .MuiAccordionSummary-content': { my: 1.5 },
+                }}
+              >
+                <Typography sx={{ fontWeight: 500, fontSize: '0.9375rem' }}>
+                  4. Run & Results
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: 2.5, pb: 2.5 }}>
+                <ResultsDisplay
+                  data={data}
+                  symbol={selectedSymbol}
+                  strategy={strategy}
+                  config={config}
+                  onBacktestComplete={handleBacktestComplete}
+                  results={results}
+                />
+              </AccordionDetails>
+            </Accordion>
           </Box>
         </Grid>
       </Grid>

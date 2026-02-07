@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import {
   Container,
   Typography,
-  Paper,
   Box,
   Grid,
   TextField,
@@ -24,7 +23,6 @@ import {
   InputAdornment,
   Menu,
   MenuItem,
-  Badge,
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -43,13 +41,23 @@ import { useNavigate } from 'react-router-dom'
 import StrategyEditor from '../components/StrategyEditor'
 import StrategyBrowse from '../components/StrategyBrowse'
 import AIStrategyGenerator from '../components/AIStrategyGenerator'
+import SectionNavigation from '../components/SectionNavigation'
+import ScrollToTop from '../components/ScrollToTop'
 import { strategyStorage } from '../utils/strategyStorage'
 import { validateStrategyCode, extractClassName } from '../utils/strategyValidator'
 import { getLibraryStrategyCode } from '../services/strategyLibraryService'
 import { useNotifications } from '../hooks/useNotifications.jsx'
 import { getTemplate } from '../utils/strategyTemplates'
+import { useThemeMode } from '../contexts/ThemeContext'
+
+// Section definitions for navigation
+const sections = [
+  { id: 'browse-save', label: 'Browse & Save Strategies' },
+  { id: 'code-editor', label: 'Strategy Code Editor' },
+]
 
 export default function StrategyBuilder() {
+  const { isDark } = useThemeMode()
   const navigate = useNavigate()
   const { showSuccess, showError, showWarning, showInfo, NotificationComponent } = useNotifications()
   
@@ -69,10 +77,8 @@ export default function StrategyBuilder() {
   const [exportMenuAnchor, setExportMenuAnchor] = useState(null)
   const [importFileInputRef, setImportFileInputRef] = useState(null)
   const [aiGeneratorOpen, setAiGeneratorOpen] = useState(false)
-  const [expandedAccordions, setExpandedAccordions] = useState({
-    browseSave: true,
-    codeEditor: true,
-  })
+  const [expandedAccordion, setExpandedAccordion] = useState('browse-save')
+  const [userHasManuallyExpanded, setUserHasManuallyExpanded] = useState(false)
 
   // Track initial state for unsaved changes detection
   const initialStateRef = useRef({ code: '', name: '', description: '' })
@@ -422,24 +428,120 @@ export default function StrategyBuilder() {
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {/* Browse & Save Strategies Accordion */}
-        <Accordion
-          expanded={expandedAccordions.browseSave}
-          onChange={(event, isExpanded) => {
-            setExpandedAccordions((prev) => ({ ...prev, browseSave: isExpanded }))
-          }}
-          sx={{ mb: 0 }}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Browse & Save Strategies
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ mb: 2 }}>
-              <Tab label="Browse" />
-              <Tab label="Saved" />
+      {/* Main Content with Section Navigation */}
+      <Grid container spacing={3}>
+        {/* Section Navigation - Left Side (Desktop) */}
+        <Grid item xs={12} md={2.5} sx={{ display: { xs: 'none', md: 'block' } }}>
+          <SectionNavigation 
+            sections={sections}
+            onSectionClick={(sectionId) => {
+              setExpandedAccordion(sectionId)
+              setUserHasManuallyExpanded(true)
+            }}
+          />
+        </Grid>
+
+        {/* Mobile Section Navigation */}
+        <Grid item xs={12} sx={{ display: { xs: 'block', md: 'none' }, mb: 2 }}>
+          <SectionNavigation 
+            sections={sections} 
+            orientation="horizontal"
+            onSectionClick={(sectionId) => {
+              setExpandedAccordion(sectionId)
+              setUserHasManuallyExpanded(true)
+            }}
+          />
+        </Grid>
+
+        {/* Main Content - Right Side */}
+        <Grid item xs={12} md={9.5}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {/* Browse & Save Strategies Accordion */}
+            <Accordion
+              id="browse-save"
+              expanded={expandedAccordion === 'browse-save'}
+              onChange={(event, isExpanded) => {
+                setExpandedAccordion(isExpanded ? 'browse-save' : '')
+                setUserHasManuallyExpanded(true)
+              }}
+              sx={{
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                '&:before': { display: 'none' },
+                boxShadow: 'none',
+                '&.Mui-expanded': {
+                  margin: 0,
+                  borderColor: 'primary.main',
+                  borderWidth: 1,
+                },
+              }}
+              disableGutters
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ fontSize: 20 }} />}
+                sx={{
+                  minHeight: 52,
+                  px: 2.5,
+                  '& .MuiAccordionSummary-content': { my: 1.5 },
+                }}
+              >
+                <Typography sx={{ fontWeight: 500, fontSize: '0.9375rem' }}>
+                  1. Browse & Save Strategies
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: 2.5, pb: 2.5 }}>
+            <Tabs 
+              value={tabValue} 
+              onChange={(e, newValue) => setTabValue(newValue)}
+              onKeyDown={(e) => {
+                const tabCount = 2
+                if (e.key === 'ArrowRight') {
+                  e.preventDefault()
+                  setTabValue((prev) => (prev + 1) % tabCount)
+                } else if (e.key === 'ArrowLeft') {
+                  e.preventDefault()
+                  setTabValue((prev) => (prev - 1 + tabCount) % tabCount)
+                }
+              }}
+              sx={{ 
+                mb: 2,
+                '& .MuiTabs-indicator': {
+                  height: 3,
+                  borderRadius: '3px 3px 0 0',
+                },
+              }}
+            >
+              <Tab 
+                label="Browse" 
+                sx={{ 
+                  textTransform: 'none', 
+                  fontSize: '0.875rem',
+                  fontWeight: tabValue === 0 ? 600 : 400,
+                  transition: 'all 0.15s ease',
+                  '&:focus-visible': {
+                    outline: '2px solid',
+                    outlineColor: 'primary.main',
+                    outlineOffset: -2,
+                    borderRadius: 1,
+                  },
+                }}
+              />
+              <Tab 
+                label="Saved" 
+                sx={{ 
+                  textTransform: 'none', 
+                  fontSize: '0.875rem',
+                  fontWeight: tabValue === 1 ? 600 : 400,
+                  transition: 'all 0.15s ease',
+                  '&:focus-visible': {
+                    outline: '2px solid',
+                    outlineColor: 'primary.main',
+                    outlineOffset: -2,
+                    borderRadius: 1,
+                  },
+                }}
+              />
             </Tabs>
 
             {tabValue === 0 && (
@@ -557,39 +659,60 @@ export default function StrategyBuilder() {
                 )}
               </Box>
             )}
-          </AccordionDetails>
-        </Accordion>
+              </AccordionDetails>
+            </Accordion>
 
-        {/* Strategy Code Editor Accordion */}
-        <Accordion
-          expanded={expandedAccordions.codeEditor}
-          onChange={(event, isExpanded) => {
-            setExpandedAccordions((prev) => ({ ...prev, codeEditor: isExpanded }))
-          }}
-          sx={{ mb: 0 }}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', mr: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Strategy Code Editor
-              </Typography>
-              {errorCount > 0 && (
-                <Chip 
-                  label={`${errorCount} error${errorCount > 1 ? 's' : ''}`}
-                  color="error"
-                  size="small"
-                />
-              )}
-              {warningCount > 0 && errorCount === 0 && (
-                <Chip 
-                  label={`${warningCount} warning${warningCount > 1 ? 's' : ''}`}
-                  color="warning"
-                  size="small"
-                />
-              )}
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails>
+            {/* Strategy Code Editor Accordion */}
+            <Accordion
+              id="code-editor"
+              expanded={expandedAccordion === 'code-editor'}
+              onChange={(event, isExpanded) => {
+                setExpandedAccordion(isExpanded ? 'code-editor' : '')
+                setUserHasManuallyExpanded(true)
+              }}
+              sx={{
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                '&:before': { display: 'none' },
+                boxShadow: 'none',
+                '&.Mui-expanded': {
+                  margin: 0,
+                  borderColor: 'primary.main',
+                  borderWidth: 1,
+                },
+              }}
+              disableGutters
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ fontSize: 20 }} />}
+                sx={{
+                  minHeight: 52,
+                  px: 2.5,
+                  '& .MuiAccordionSummary-content': { my: 1.5 },
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', mr: 1 }}>
+                  <Typography sx={{ fontWeight: 500, fontSize: '0.9375rem' }}>
+                    2. Strategy Code Editor
+                  </Typography>
+                  {errorCount > 0 && (
+                    <Chip 
+                      label={`${errorCount} error${errorCount > 1 ? 's' : ''}`}
+                      color="error"
+                      size="small"
+                    />
+                  )}
+                  {warningCount > 0 && errorCount === 0 && (
+                    <Chip 
+                      label={`${warningCount} warning${warningCount > 1 ? 's' : ''}`}
+                      color="warning"
+                      size="small"
+                    />
+                  )}
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: 2.5, pb: 2.5 }}>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2, gap: 1.5 }}>
               <Button
                 variant="outlined"
@@ -682,9 +805,11 @@ export default function StrategyBuilder() {
             )}
 
             <StrategyEditor code={code} onChange={setCode} height="600px" />
-          </AccordionDetails>
-        </Accordion>
-      </Box>
+              </AccordionDetails>
+            </Accordion>
+          </Box>
+        </Grid>
+      </Grid>
 
       {/* Save Dialog */}
       <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)}>
@@ -770,6 +895,9 @@ export default function StrategyBuilder() {
       />
 
       {/* Notifications */}
+      {/* Scroll to top button */}
+      <ScrollToTop />
+
       {NotificationComponent}
     </Container>
   )

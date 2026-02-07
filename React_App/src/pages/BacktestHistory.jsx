@@ -40,6 +40,7 @@ import {
 import StrategyComparison from '../components/StrategyComparison'
 import MetricsTable from '../components/MetricsTable'
 import Chart from '../components/Chart'
+import ScrollToTop from '../components/ScrollToTop'
 import { backtestService } from '../services/backtestService'
 
 export default function BacktestHistory() {
@@ -642,6 +643,9 @@ export default function BacktestHistory() {
           )}
         </DialogActions>
       </Dialog>
+
+      {/* Scroll to top button */}
+      <ScrollToTop />
     </Container>
   )
 }

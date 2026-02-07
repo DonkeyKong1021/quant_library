@@ -1,25 +1,45 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Box, Typography, Button, Paper, useTheme, useMediaQuery, Select, MenuItem, FormControl } from '@mui/material'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useThemeMode } from '../contexts/ThemeContext'
 
 /**
  * SectionNavigation component for table of contents / section navigation
  * Highlights active section based on scroll position
+ * Supports URL hash for deep linking
  * 
  * @param {Array} sections - Array of { id, label, icon? }
  * @param {string} orientation - 'vertical' (sidebar) or 'horizontal' (mobile)
+ * @param {boolean} syncHash - Whether to sync active section with URL hash (default: true)
+ * @param {Function} onSectionClick - Optional callback when a section is clicked (receives sectionId)
  */
-export default function SectionNavigation({ sections = [], orientation = 'vertical' }) {
+export default function SectionNavigation({ sections = [], orientation = 'vertical', syncHash = true, onSectionClick }) {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const { isDark } = useThemeMode()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState(sections[0]?.id || '')
   const observerRef = useRef(null)
+  const isScrollingRef = useRef(false)
 
+  // Handle initial hash navigation on mount
   useEffect(() => {
     if (!sections || sections.length === 0) return
 
-    // Create IntersectionObserver to detect active section
+    const hash = location.hash.replace('#', '')
+    if (hash && sections.some(s => s.id === hash)) {
+      // Delay to ensure DOM is ready
+      setTimeout(() => {
+        scrollToSection(hash, false)
+      }, 100)
+    }
+  }, []) // Only run on mount
+
+  // Setup IntersectionObserver for scroll-based highlighting
+  useEffect(() => {
+    if (!sections || sections.length === 0) return
+
     const observerOptions = {
       root: null,
       rootMargin: '-20% 0px -70% 0px',
@@ -27,9 +47,19 @@ export default function SectionNavigation({ sections = [], orientation = 'vertic
     }
 
     observerRef.current = new IntersectionObserver((entries) => {
+      // Don't update during programmatic scrolling
+      if (isScrollingRef.current) return
+
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          setActiveSection(entry.target.id)
+          const newActiveSection = entry.target.id
+          setActiveSection(newActiveSection)
+          
+          // Update URL hash without triggering navigation
+          if (syncHash && newActiveSection) {
+            const newUrl = `${location.pathname}#${newActiveSection}`
+            window.history.replaceState(null, '', newUrl)
+          }
         }
       })
     }, observerOptions)
@@ -47,22 +77,48 @@ export default function SectionNavigation({ sections = [], orientation = 'vertic
         observerRef.current.disconnect()
       }
     }
-  }, [sections])
+  }, [sections, syncHash, location.pathname])
 
-  const scrollToSection = (sectionId) => {
-    const element = document.getElementById(sectionId)
-    if (element) {
-      const offset = 100 // Account for header
-      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
-      const offsetPosition = elementPosition - offset
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth',
-      })
-      setActiveSection(sectionId)
+  const scrollToSection = useCallback((sectionId, updateHash = true) => {
+    // Always call the onSectionClick callback first (e.g., to expand accordion)
+    // This ensures the accordion expands regardless of current state
+    if (onSectionClick) {
+      onSectionClick(sectionId)
     }
-  }
+    
+    setActiveSection(sectionId)
+    
+    // Update URL hash immediately
+    if (updateHash && syncHash) {
+      const newUrl = `${location.pathname}#${sectionId}`
+      window.history.pushState(null, '', newUrl)
+    }
+    
+    isScrollingRef.current = true
+    
+    // Wait for React to re-render and expand accordion before scrolling
+    // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const element = document.getElementById(sectionId)
+        if (element) {
+          const offset = 100 // Account for header
+          const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
+          const offsetPosition = elementPosition - offset
+
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth',
+          })
+        }
+        
+        // Reset scrolling flag after animation completes
+        setTimeout(() => {
+          isScrollingRef.current = false
+        }, 600)
+      }, 150) // Increased delay to ensure accordion expansion completes
+    })
+  }, [location.pathname, syncHash, onSectionClick])
 
   if (!sections || sections.length === 0) {
     return null

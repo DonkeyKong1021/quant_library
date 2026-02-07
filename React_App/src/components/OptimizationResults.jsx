@@ -10,10 +10,12 @@ import {
   Divider,
 } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import HistoryIcon from '@mui/icons-material/History'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import { useNavigate } from 'react-router-dom'
+import { useThemeMode } from '../contexts/ThemeContext'
 import OptimizationResultsTable from './OptimizationResultsTable'
 import OptimizationHeatmap from './OptimizationHeatmap'
 import OptimizationSensitivity from './OptimizationSensitivity'
@@ -28,6 +30,7 @@ export default function OptimizationResults({
   onApplyParameters,
 }) {
   const navigate = useNavigate()
+  const { isDark } = useThemeMode()
   const [selectedResult, setSelectedResult] = useState(null)
 
   if (!results || !results.best_result) {
@@ -55,34 +58,53 @@ export default function OptimizationResults({
   return (
     <Box>
       {/* Summary */}
-      <Paper sx={{ p: 3, mb: 3, backgroundColor: 'success.light', backgroundImage: 'none' }}>
+      <Paper
+        sx={{
+          p: 3,
+          mb: 3,
+          border: '1px solid',
+          borderColor: isDark ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.4)',
+          backgroundColor: isDark ? 'rgba(34, 197, 94, 0.08)' : 'rgba(34, 197, 94, 0.06)',
+          backgroundImage: 'none',
+          borderRadius: 2,
+        }}
+        elevation={0}
+      >
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={8}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-              Optimization Complete
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <CheckCircleOutlineIcon sx={{ color: 'success.main', fontSize: 22 }} />
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Optimization Complete
+              </Typography>
+            </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Strategy: <strong>{results.strategy_name}</strong> | Symbol: <strong>{symbol}</strong> | 
               Total Runs: <strong>{results.total_runs}</strong> | Objective: <strong>{getMetricLabel(results.objective)}</strong>
             </Typography>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {Object.keys(bestResult.parameters).map((paramName) => (
                 <Chip
                   key={paramName}
                   label={`${paramName}: ${bestResult.parameters[paramName]}`}
                   size="small"
-                  variant="outlined"
+                  sx={{
+                    backgroundColor: 'primary.main',
+                    color: 'white',
+                    fontWeight: 500,
+                  }}
                 />
               ))}
             </Box>
           </Grid>
           <Grid item xs={12} md={4}>
-            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' }, flexWrap: 'wrap' }}>
               <Button
                 variant="contained"
                 startIcon={<PlayArrowIcon />}
                 onClick={handleApplyBest}
-                size="small"
+                size="medium"
+                sx={{ fontWeight: 500 }}
               >
                 Use Best Parameters
               </Button>
@@ -91,14 +113,14 @@ export default function OptimizationResults({
         </Grid>
 
         {/* Best Result Metrics */}
-        <Divider sx={{ my: 2 }} />
-        <Grid container spacing={2}>
+        <Divider sx={{ my: 2.5, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }} />
+        <Grid container spacing={3}>
           <Grid item xs={6} md={3}>
             <Box>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                 {getMetricLabel(results.objective)}
               </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main' }}>
                 {formatMetricValue(bestResult.objective_value, results.objective)}
               </Typography>
             </Box>
@@ -107,30 +129,30 @@ export default function OptimizationResults({
             <>
               <Grid item xs={6} md={3}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                     Total Return
                   </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }}>
                     {formatMetricValue(bestResult.metrics.total_return, 'total_return')}
                   </Typography>
                 </Box>
               </Grid>
               <Grid item xs={6} md={3}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                     Sharpe Ratio
                   </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }}>
                     {formatMetricValue(bestResult.metrics.sharpe_ratio, 'sharpe_ratio')}
                   </Typography>
                 </Box>
               </Grid>
               <Grid item xs={6} md={3}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
                     Max Drawdown
                   </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }}>
                     {formatMetricValue(bestResult.metrics.max_drawdown_pct, 'max_drawdown_pct')}
                   </Typography>
                 </Box>

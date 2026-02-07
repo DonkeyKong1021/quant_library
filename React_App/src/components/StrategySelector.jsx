@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  Paper,
   Select,
   MenuItem,
   FormControl,
@@ -13,12 +12,16 @@ import {
   AccordionSummary,
   AccordionDetails,
   Button,
+  Alert,
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { useQuery } from '@tanstack/react-query'
 import { strategyService } from '../services/backtestService'
 import { strategyStorage } from '../utils/strategyStorage'
+import { useThemeMode } from '../contexts/ThemeContext'
 export default function StrategySelector({ onStrategySelected, initialCustomStrategyId, initialParams }) {
+  const { isDark } = useThemeMode()
   const [strategyType, setStrategyType] = useState('moving_average')
   const [params, setParams] = useState(initialParams || {})
   const [customStrategyId, setCustomStrategyId] = useState('')
@@ -122,162 +125,208 @@ export default function StrategySelector({ onStrategySelected, initialCustomStra
   ]
 
   return (
-    <Paper sx={{ p: 4, elevation: 1 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Strategy Type Selection */}
+      <Box>
+        <FormControl fullWidth>
+          <InputLabel>Strategy Type</InputLabel>
+          <Select
+            value={strategyType}
+            label="Strategy Type"
+            onChange={(e) => handleStrategyTypeChange(e.target.value)}
+            sx={{
+              '& .MuiSelect-select': {
+                py: 1.5,
+              },
+            }}
+          >
+            {strategies.map((strategy) => (
+              <MenuItem key={strategy.value} value={strategy.value}>
+                {strategy.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+      {strategyType === 'custom' ? (
+        <>
           <FormControl fullWidth>
-            <InputLabel>Strategy Type</InputLabel>
+            <InputLabel>Select Custom Strategy</InputLabel>
             <Select
-              value={strategyType}
-              label="Strategy Type"
-              onChange={(e) => handleStrategyTypeChange(e.target.value)}
+              value={customStrategyId}
+              label="Select Custom Strategy"
+              onChange={(e) => setCustomStrategyId(e.target.value)}
+              sx={{
+                '& .MuiSelect-select': {
+                  py: 1.5,
+                },
+              }}
             >
-              {strategies.map((strategy) => (
-                <MenuItem key={strategy.value} value={strategy.value}>
-                  {strategy.label}
+              {savedStrategies.length === 0 ? (
+                <MenuItem disabled value="">
+                  No custom strategies saved
                 </MenuItem>
-              ))}
+              ) : (
+                savedStrategies.map((strategy) => (
+                  <MenuItem key={strategy.id} value={strategy.id}>
+                    {strategy.name || 'Unnamed Strategy'}
+                  </MenuItem>
+                ))
+              )}
             </Select>
           </FormControl>
-        </Grid>
-
-        {strategyType === 'custom' ? (
-          <>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Select Custom Strategy</InputLabel>
-                <Select
-                  value={customStrategyId}
-                  label="Select Custom Strategy"
-                  onChange={(e) => setCustomStrategyId(e.target.value)}
-                >
-                  {savedStrategies.length === 0 ? (
-                    <MenuItem disabled value="">
-                      No custom strategies saved
-                    </MenuItem>
-                  ) : (
-                    savedStrategies.map((strategy) => (
-                      <MenuItem key={strategy.id} value={strategy.id}>
-                        {strategy.name || 'Unnamed Strategy'}
-                      </MenuItem>
-                    ))
-                  )}
-                </Select>
-              </FormControl>
-            </Grid>
-            {customStrategyId && (
-              <Grid item xs={12} md={6}>
-                <Box
-                  sx={{
-                    p: 2,
-                    backgroundColor: 'action.hover',
-                    borderRadius: 2,
-                    height: '100%',
-                  }}
-                >
-                  {(() => {
-                    const selected = savedStrategies.find((s) => s.id === customStrategyId)
-                    return selected ? (
-                      <>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                          {selected.name}
-                        </Typography>
-                        {selected.description && (
-                          <Typography variant="body2" color="text.secondary">
-                            {selected.description}
-                          </Typography>
-                        )}
-                      </>
-                    ) : null
-                  })()}
-                </Box>
-              </Grid>
-            )}
-          </>
-        ) : (
-          <>
-            {strategyParams && strategyParams.description && (
-              <Grid item xs={12} md={6}>
-                <Box
-                  sx={{
-                    p: 2.5,
-                    backgroundColor: 'action.hover',
-                    borderRadius: 2.5,
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    {strategyParams.description}
-                  </Typography>
-                </Box>
-              </Grid>
-            )}
-
-            {strategyParams && (
-              <Grid item xs={12}>
-                <Accordion defaultExpanded>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                      Strategy Parameters
-                    </Typography>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Grid container spacing={2}>
-                      {Object.keys(strategyParams.parameters || {}).map((paramName) => {
-                        const paramDef = strategyParams.parameters[paramName]
-                        return (
-                          <Grid item xs={12} sm={6} md={4} key={paramName}>
-                            <TextField
-                              label={paramDef.description || paramName}
-                              type={paramDef.type === 'float' ? 'number' : 'number'}
-                              value={params[paramName] || paramDef.default}
-                              onChange={(e) =>
-                                handleParamChange(
-                                  paramName,
-                                  paramDef.type === 'float'
-                                    ? parseFloat(e.target.value) || 0
-                                    : parseInt(e.target.value) || 0
-                                )
-                              }
-                              fullWidth
-                              inputProps={{
-                                min: paramDef.min,
-                                max: paramDef.max,
-                                step: paramDef.type === 'float' ? 0.1 : 1,
-                              }}
-                            />
-                          </Grid>
-                        )
-                      })}
-                    </Grid>
-                  </AccordionDetails>
-                </Accordion>
-              </Grid>
-            )}
-          </>
-        )}
-
-        {/* Select Button */}
-        <Grid item xs={12}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-            <Button
-              variant="contained"
-              onClick={handleSelectStrategy}
-              disabled={!isStrategyValid()}
-              size="large"
-              sx={{ minWidth: 120 }}
+          {customStrategyId && (
+            <Alert 
+              severity="info" 
+              icon={<InfoOutlinedIcon />}
+              sx={{
+                '& .MuiAlert-message': {
+                  width: '100%',
+                },
+              }}
             >
-              Select Strategy
-            </Button>
-          </Box>
-        </Grid>
-      </Grid>
-    </Paper>
+              {(() => {
+                const selected = savedStrategies.find((s) => s.id === customStrategyId)
+                return selected ? (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                      {selected.name}
+                    </Typography>
+                    {selected.description && (
+                      <Typography variant="body2" color="text.secondary">
+                        {selected.description}
+                      </Typography>
+                    )}
+                  </Box>
+                ) : null
+              })()}
+            </Alert>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Strategy Description */}
+          {strategyParams && strategyParams.description && (
+            <Alert 
+              severity="info" 
+              icon={<InfoOutlinedIcon />}
+              sx={{
+                backgroundColor: isDark 
+                  ? 'rgba(59, 130, 246, 0.08)' 
+                  : 'rgba(59, 130, 246, 0.04)',
+                border: '1px solid',
+                borderColor: isDark 
+                  ? 'rgba(59, 130, 246, 0.2)' 
+                  : 'rgba(59, 130, 246, 0.12)',
+                '& .MuiAlert-icon': {
+                  color: 'primary.main',
+                },
+                '& .MuiAlert-message': {
+                  width: '100%',
+                  py: 0.5,
+                },
+              }}
+            >
+              <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                {strategyParams.description}
+              </Typography>
+            </Alert>
+          )}
+
+          {/* Strategy Parameters */}
+          {strategyParams && strategyParams.parameters && Object.keys(strategyParams.parameters).length > 0 && (
+            <Accordion 
+              defaultExpanded
+              sx={{
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                '&:before': { display: 'none' },
+                boxShadow: 'none',
+                '&.Mui-expanded': {
+                  margin: 0,
+                  borderColor: 'primary.main',
+                  borderWidth: 1,
+                },
+              }}
+              disableGutters
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ fontSize: 20 }} />}
+                sx={{
+                  minHeight: 52,
+                  px: 2.5,
+                  '& .MuiAccordionSummary-content': { my: 1.5 },
+                }}
+              >
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '0.9375rem' }}>
+                  Strategy Parameters
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: 2.5, pb: 2.5 }}>
+                <Grid container spacing={2}>
+                  {Object.keys(strategyParams.parameters).map((paramName) => {
+                    const paramDef = strategyParams.parameters[paramName]
+                    return (
+                      <Grid item xs={12} sm={6} key={paramName}>
+                        <TextField
+                          label={paramDef.description || paramName}
+                          type="number"
+                          value={params[paramName] ?? paramDef.default ?? ''}
+                          onChange={(e) =>
+                            handleParamChange(
+                              paramName,
+                              paramDef.type === 'float'
+                                ? parseFloat(e.target.value) || 0
+                                : parseInt(e.target.value) || 0
+                            )
+                          }
+                          fullWidth
+                          size="small"
+                          inputProps={{
+                            min: paramDef.min,
+                            max: paramDef.max,
+                            step: paramDef.type === 'float' ? 0.1 : 1,
+                          }}
+                          helperText={
+                            paramDef.min !== undefined && paramDef.max !== undefined
+                              ? `Range: ${paramDef.min} - ${paramDef.max}`
+                              : paramDef.min !== undefined
+                              ? `Min: ${paramDef.min}`
+                              : paramDef.max !== undefined
+                              ? `Max: ${paramDef.max}`
+                              : undefined
+                          }
+                        />
+                      </Grid>
+                    )
+                  })}
+                </Grid>
+              </AccordionDetails>
+            </Accordion>
+          )}
+        </>
+      )}
+
+      {/* Select Button */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 1 }}>
+        <Button
+          variant="contained"
+          onClick={handleSelectStrategy}
+          disabled={!isStrategyValid()}
+          size="medium"
+          sx={{ 
+            minWidth: 140,
+            px: 3,
+            py: 1,
+            fontSize: '0.9375rem',
+            fontWeight: 500,
+          }}
+        >
+          Select Strategy
+        </Button>
+      </Box>
+    </Box>
   )
 }

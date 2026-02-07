@@ -30,7 +30,7 @@ import DatabaseStatsModal from '../components/DatabaseStatsModal'
 import DatabaseSelectorModal from '../components/DatabaseSelectorModal'
 import { databaseStorage } from '../utils/databaseStorage'
 import StrategyPerformanceModal from '../components/StrategyPerformanceModal'
-import SectionNavigation from '../components/SectionNavigation'
+import ScrollToTop from '../components/ScrollToTop'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import StorageIcon from '@mui/icons-material/Storage'
 import AssessmentIcon from '@mui/icons-material/Assessment'
@@ -1045,18 +1045,10 @@ export default function Dashboard() {
         currentDatabase={currentDatabase}
       />
           </Box>
-          {/* Section Navigation */}
-          <Box sx={{ display: { xs: 'none', lg: 'block' }, minWidth: 200, flexShrink: 0 }}>
-            <SectionNavigation
-              sections={[
-                { id: 'quick-actions', label: 'Quick Actions' },
-                { id: 'performance-overview', label: 'Performance' },
-                { id: 'quick-start-guide', label: 'Quick Start' },
-              ]}
-              orientation="vertical"
-            />
-          </Box>
         </Box>
+
+        {/* Scroll to top button */}
+        <ScrollToTop />
       </Container>
     )
   }
